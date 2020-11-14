@@ -66,7 +66,7 @@ vector<string> _parseLine(const char* cmd_line)
   {
     args[i] = new char[30];
   }
-  printf("%d\n",_parseCommandLine(cmd_line, args));
+  _parseCommandLine(cmd_line, args)ף
   vector<string> cmd_vec = vector<string>(20);
   for (int i = 0; i < 20; i++)
   {
@@ -135,4 +135,10 @@ void SmallShell::executeCommand(const char *cmd_line) {
   // Command* cmd = CreateCommand(cmd_line);
   // cmd->execute();
   // Please note that you must fork smash process for some commands (e.g., external commands....)
+  vector<string> broken_cmd = _parseLine(cmd_line);
+  for (vector<string>::iterator it = broken_cmd.begin(); it != broken_cmd.end(); it++)
+  {
+    cout << *it << ", ";
+  }
+  cout << "\n";
 }
