@@ -7,11 +7,15 @@
 #define COMMAND_MAX_ARGS (20)
 #define HISTORY_MAX_RECORDS (50)
 
+using namespace std;
+
 class Command {
 // TODO: Add your data members
+ private:
+  string cmd_line;
  public:
   Command(const char* cmd_line);
-  virtual ~Command();
+  virtual ~Command() {};
   virtual void execute() = 0;
   //virtual void prepare();
   //virtual void cleanup();
@@ -22,6 +26,7 @@ class BuiltInCommand : public Command {
  public:
   BuiltInCommand(const char* cmd_line);
   virtual ~BuiltInCommand() {}
+  virtual void execute() = 0;
 };
 
 class ExternalCommand : public Command {
@@ -76,6 +81,15 @@ class QuitCommand : public BuiltInCommand {
   QuitCommand(const char* cmd_line, JobsList* jobs);
   virtual ~QuitCommand() {}
   void execute() override;
+};
+
+class ChpromptCommand : public BuiltInCommand {
+  private:
+    string new_prompt;
+  public:
+    ChpromptCommand(const char* cmd_line, string new_prompt);
+    virtual ~ChpromptCommand() {}
+    void execute() override;
 };
 
 class CommandsHistory {
@@ -158,6 +172,7 @@ class SmallShell {
  private:
   // TODO: Add your data members
   SmallShell();
+  string prompt;
  public:
   Command *CreateCommand(const char* cmd_line);
   SmallShell(SmallShell const&)      = delete; // disable copy ctor
@@ -171,6 +186,8 @@ class SmallShell {
   ~SmallShell();
   void executeCommand(const char* cmd_line);
   // TODO: add extra methods as needed
+  string getPrompt();
+  void setPrompt(string new_prompt);
 };
 
 #endif //SMASH_COMMAND_H_

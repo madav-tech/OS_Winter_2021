@@ -66,7 +66,7 @@ vector<string> _parseLine(const char* cmd_line)
   {
     args[i] = new char[30];
   }
-  _parseCommandLine(cmd_line, args)ף
+  _parseCommandLine(cmd_line, args);
   vector<string> cmd_vec = vector<string>(20);
   for (int i = 0; i < 20; i++)
   {
@@ -104,6 +104,7 @@ void _removeBackgroundSign(char* cmd_line) {
 
 SmallShell::SmallShell() {
 // TODO: add your implementation
+  this->prompt = "smash> ";
 }
 
 SmallShell::~SmallShell() {
@@ -115,6 +116,11 @@ SmallShell::~SmallShell() {
 */
 Command * SmallShell::CreateCommand(const char* cmd_line) {
 	// For example:
+  vector<string> split_line = _parseLine(cmd_line);
+  string command_name = split_line[0];
+  if(command_name == "chprompt") {
+    return new ChpromptCommand(cmd_line, split_line[1]);
+  }
 /*
   string cmd_s = string(cmd_line);
   if (cmd_s.find("pwd") == 0) {
@@ -132,13 +138,42 @@ Command * SmallShell::CreateCommand(const char* cmd_line) {
 void SmallShell::executeCommand(const char *cmd_line) {
   // TODO: Add your implementation here
   // for example:
+  Command* cmd = CreateCommand(cmd_line);
+  if (cmd != nullptr) {
+    cmd->execute();
+  }
   // Command* cmd = CreateCommand(cmd_line);
   // cmd->execute();
   // Please note that you must fork smash process for some commands (e.g., external commands....)
-  vector<string> broken_cmd = _parseLine(cmd_line);
-  for (vector<string>::iterator it = broken_cmd.begin(); it != broken_cmd.end(); it++)
-  {
-    cout << *it << ", ";
-  }
-  cout << "\n";
 }
+
+// GENERATED METHODS
+
+string SmallShell::getPrompt()
+{
+  return this->prompt;
+}
+
+void SmallShell::setPrompt(string new_prompt)
+{
+  this->prompt = new_prompt;
+}
+
+//__________chprompt_________________
+
+ChpromptCommand::ChpromptCommand(const char* cmd_line, string new_prompt) : BuiltInCommand(cmd_line), new_prompt(new_prompt){ 
+  if (new_prompt == "") {
+    this->new_prompt = "smash";
+  }
+}
+
+void ChpromptCommand::execute()
+{
+  SmallShell::getInstance().setPrompt(this->new_prompt + "> ");
+}
+
+//________Command_________
+Command::Command(const char* cmd_line) : cmd_line(cmd_line) {}
+
+//____BuiltInCommand____
+BuiltInCommand::BuiltInCommand(const char* cmd_line) : Command(cmd_line) {}
