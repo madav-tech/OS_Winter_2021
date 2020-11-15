@@ -56,7 +56,10 @@ class RedirectionCommand : public Command {
 
 class ChangeDirCommand : public BuiltInCommand {
 // TODO: Add your data members public:
-  ChangeDirCommand(const char* cmd_line, char** plastPwd);
+ private:
+  string target_dir;
+ public:
+  ChangeDirCommand(const char* cmd_line, string target_dir);
   virtual ~ChangeDirCommand() {}
   void execute() override;
 };
@@ -173,8 +176,10 @@ class BackgroundCommand : public BuiltInCommand {
 class SmallShell {
  private:
   // TODO: Add your data members
-  SmallShell();
+  string prev_dir;
   string prompt;
+
+  SmallShell();
  public:
   Command *CreateCommand(const char* cmd_line);
   SmallShell(SmallShell const&)      = delete; // disable copy ctor
@@ -190,6 +195,9 @@ class SmallShell {
   // TODO: add extra methods as needed
   string getPrompt();
   void setPrompt(string new_prompt);
+
+  string getPrevDir();
+  void setPrevDir(string new_dir);
 };
 
 #endif //SMASH_COMMAND_H_

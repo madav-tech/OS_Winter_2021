@@ -105,6 +105,7 @@ void _removeBackgroundSign(char* cmd_line) {
 SmallShell::SmallShell() {
 // TODO: add your implementation
   this->prompt = "smash> ";
+  this->prev_dir = "\0";
 }
 
 SmallShell::~SmallShell() {
@@ -121,11 +122,17 @@ Command * SmallShell::CreateCommand(const char* cmd_line) {
   if(command_name == "chprompt") {
     return new ChpromptCommand(cmd_line, split_line[1]);
   }
-  else if (command_name == "showpid")
-  {
+  else if (command_name == "showpid") {
     return new ShowPidCommand(cmd_line);
   }
-  
+  else if (command_name == "cd") {
+    if (split_line[2] != ""){
+      printf("smash error: cd: too many arguments\n");
+    }
+    else {
+      return new ChangeDirCommand(cmd_line, split_line[1]);
+    }
+  }
 /*
   string cmd_s = string(cmd_line);
   if (cmd_s.find("pwd") == 0) {
@@ -152,16 +159,23 @@ void SmallShell::executeCommand(const char *cmd_line) {
   // Please note that you must fork smash process for some commands (e.g., external commands....)
 }
 
-// GENERATED METHODS
+//________SmallShell_________
 
-string SmallShell::getPrompt()
-{
+
+string SmallShell::getPrompt() {
   return this->prompt;
 }
 
-void SmallShell::setPrompt(string new_prompt)
-{
+void SmallShell::setPrompt(string new_prompt) {
   this->prompt = new_prompt;
+}
+
+string SmallShell::getPrevDir(){
+  return this->prev_dir;
+}
+
+void SmallShell::setPrevDir(string new_dir){
+  this->prev_dir = new_dir;
 }
 
 //_________chprompt_________
@@ -185,6 +199,40 @@ ShowPidCommand::ShowPidCommand(const char* cmd_line) : BuiltInCommand(cmd_line) 
 void ShowPidCommand::execute() {
   printf("smash pid is %d\n", this->pid);
 }
+
+//_________cd_________
+
+ChangeDirCommand::ChangeDirCommand(const char* cmd_line, string target_dir) : BuiltInCommand(cmd_line) {
+  this->target_dir = target_dir;
+}
+
+void ChangeDirCommand::execute(){
+  if (this->target_dir == "-") {
+    if (SmallShell::getInstance().getPrevDir() == "\0") {
+      printf("smash error: cd: OLDPWD not set\n");
+    }
+    else {
+      string prev_temp = get_current_dir_name();
+      if (chdir(SmallShell::getInstance().getPrevDir().c_str()) == 0){
+        SmallShell::getInstance().setPrevDir(prev_temp);
+        return;
+      }
+      else {
+        perror("smash error: chdir failed");
+      }
+    }
+  }
+  else {
+    string prev_temp = get_current_dir_name();
+    if (chdir(this->target_dir.c_str()) == 0) {
+      SmallShell::getInstance().setPrevDir(prev_temp);
+    }
+    else {
+      perror("smash error: chdir failed");
+    }
+  }
+}
+
 
 //_________Command_________
 Command::Command(const char* cmd_line) : cmd_line(cmd_line) {}

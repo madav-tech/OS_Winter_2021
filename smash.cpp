@@ -22,6 +22,7 @@ int main(int argc, char* argv[]) {
         std::string cmd_line;
         std::getline(std::cin, cmd_line);
         smash.executeCommand(cmd_line.c_str());
+        std::cout << get_current_dir_name() << "\n"; //Printing current directory every line for testing
     }
     return 0;
 }
