@@ -121,6 +121,11 @@ Command * SmallShell::CreateCommand(const char* cmd_line) {
   if(command_name == "chprompt") {
     return new ChpromptCommand(cmd_line, split_line[1]);
   }
+  else if (command_name == "showpid")
+  {
+    return new ShowPidCommand(cmd_line);
+  }
+  
 /*
   string cmd_s = string(cmd_line);
   if (cmd_s.find("pwd") == 0) {
@@ -159,7 +164,7 @@ void SmallShell::setPrompt(string new_prompt)
   this->prompt = new_prompt;
 }
 
-//__________chprompt_________________
+//_________chprompt_________
 
 ChpromptCommand::ChpromptCommand(const char* cmd_line, string new_prompt) : BuiltInCommand(cmd_line), new_prompt(new_prompt){ 
   if (new_prompt == "") {
@@ -167,12 +172,21 @@ ChpromptCommand::ChpromptCommand(const char* cmd_line, string new_prompt) : Buil
   }
 }
 
-void ChpromptCommand::execute()
-{
+void ChpromptCommand::execute() {
   SmallShell::getInstance().setPrompt(this->new_prompt + "> ");
 }
 
-//________Command_________
+//_________showpid_________
+
+ShowPidCommand::ShowPidCommand(const char* cmd_line) : BuiltInCommand(cmd_line) {
+  this->pid = getpid();
+}
+
+void ShowPidCommand::execute() {
+  printf("smash pid is %d\n", this->pid);
+}
+
+//_________Command_________
 Command::Command(const char* cmd_line) : cmd_line(cmd_line) {}
 
 //____BuiltInCommand____
