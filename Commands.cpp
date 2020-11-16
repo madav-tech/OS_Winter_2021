@@ -140,10 +140,27 @@ Command * SmallShell::CreateCommand(const char* cmd_line) {
   }
   else if ...
   .....
-  else {
-    return new ExternalCommand(cmd_line);
-  }
   */
+  else {
+    bool bg_run = false;
+    //Checking for '&' symbol
+    for (vector<string>::iterator it = split_line.begin(); it != split_line.end(); it++){
+      if (*it == "&"){
+        bg_run = true;
+        break;
+      }
+    }
+    //Filtering arguments for external command
+    vector<string> ext_args = vector<string>(20);
+    int i = 0;
+    for (vector<string>::iterator it = split_line.begin(); it != split_line.end(); it++){
+      if (it != split_line.begin() && *it != "&"){
+        ext_args[i] = *it;
+        i++;
+      }
+    }
+    return new ExternalCommand(cmd_line, ext_args, bg_run);
+  }
   return nullptr;
 }
 
@@ -234,8 +251,46 @@ void ChangeDirCommand::execute(){
 }
 
 
-//_________Command_________
+//_________ExternalCommand_________
+
+ExternalCommand::ExternalCommand(const char* cmd_line, vector<string> ext_args, bool bg_run) : Command(cmd_line), args(ext_args), bg_run(bg_run) {
+  
+}
+
+void ExternalCommand::execute() {
+  //FORK AND THEN PASS ARGUMANTS TO BASH THROUGH EXECV()
+  int p = fork();
+
+  if(p < 0){
+    perror("smash error: fork failed");
+    return;
+  }
+  else if (p > 0){
+    if(!this->bg_run){
+      wait(NULL);
+    }
+  }
+  else {
+    string command = "";
+    for (vector<string>::iterator it = this->args.begin(); it != this->args.end(); it++){
+      command += (*it + " ");
+    }
+    char* args[4];
+    args[0] = "/bin/bash";
+    args[1] = "-c";
+    args[3] = NULL;
+    char cmd[200] = "";
+    strcat(cmd, this->cmd_line.c_str());
+    args[2] = cmd;
+    if (execv(args[0], args) < 0){
+      perror("smash error: execv failed");
+      exit(1);
+    }
+  }
+}
+
+//_________Command_________________
 Command::Command(const char* cmd_line) : cmd_line(cmd_line) {}
 
-//____BuiltInCommand____
+//____BuiltInCommand_______________
 BuiltInCommand::BuiltInCommand(const char* cmd_line) : Command(cmd_line) {}

@@ -11,7 +11,7 @@ using namespace std;
 
 class Command {
 // TODO: Add your data members
- private:
+ protected:
   string cmd_line;
  public:
   Command(const char* cmd_line);
@@ -30,8 +30,11 @@ class BuiltInCommand : public Command {
 };
 
 class ExternalCommand : public Command {
+ private:
+  vector<string> args;
+  bool bg_run;
  public:
-  ExternalCommand(const char* cmd_line);
+  ExternalCommand(const char* cmd_line, vector<string> ext_args, bool bg_run);
   virtual ~ExternalCommand() {}
   void execute() override;
 };
