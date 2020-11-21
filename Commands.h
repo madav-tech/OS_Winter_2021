@@ -125,19 +125,40 @@ class JobsList {
  public:
   class JobEntry {
    // TODO: Add your data members
+   Command command;
+   pid_t process_id;
+   time_t insertion_time;
+   bool is_stopped;
+  public:
+      JobEntry(Command command,int process_id, bool is_stopped);
+      void PrintJob();// prints job info
+      void killJob();// kills the job using SIGKILL and prints a note
+      pid_t getPID();
+      void stopped();
+      void resumed();
+
   };
+
  // TODO: Add your data members
+ map<int,JobEntry> running_jobs_list;
+ map<int,JobEntry> stopped_jobs_list; //holds indexes of the stopped jobs
+ map<pid_t,int> pid_to_index;
+ int next_job_ID=1;
+
  public:
   JobsList();
   ~JobsList();
-  void addJob(Command* cmd, bool isStopped = false);
+  void addJob(Command* cmd, bool isStopped = false, int job_pid);
   void printJobsList();
   void killAllJobs();
   void removeFinishedJobs();
   JobEntry * getJobById(int jobId);
   void removeJobById(int jobId);
-  JobEntry * getLastJob(int* lastJobId);
-  JobEntry *getLastStoppedJob(int *jobId);
+  int pidToIndex(pid_t pid);
+  void jobStopped(int jobId,bool is_pid=false);
+  void jobResumed(int jobId,bool is_pid=false);
+  //JobEntry * getLastJob(int* lastJobId);
+  //JobEntry *getLastStoppedJob(int *jobId);
   // TODO: Add extra methods or modify exisitng ones as needed
 };
 
