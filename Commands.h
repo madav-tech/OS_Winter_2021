@@ -66,7 +66,7 @@ class ChangeDirCommand : public BuiltInCommand {
   virtual ~ChangeDirCommand() {}
   void execute() override;
 };
-
+//HERE
 class GetCurrDirCommand : public BuiltInCommand {
  public:
   GetCurrDirCommand(const char* cmd_line);
