@@ -125,9 +125,11 @@ Command * SmallShell::CreateCommand(const char* cmd_line) {
   if(command_name == "chprompt") {
     return new ChpromptCommand(cmd_line, split_line[1]);
   }
+
   else if (command_name == "showpid") {
     return new ShowPidCommand(cmd_line);
   }
+
   else if (command_name == "cd") {
     if (split_line[2] != ""){
       printf("smash error: cd: too many arguments\n");
@@ -136,17 +138,23 @@ Command * SmallShell::CreateCommand(const char* cmd_line) {
       return new ChangeDirCommand(cmd_line, split_line[1]);
     }
   }
+
   else if (command_name == "pwd"){
     return new GetCurrDirCommand(cmd_line);
   }
-/*
-  string cmd_s = string(cmd_line);
-  if (cmd_s.find("pwd") == 0) {
-    return new GetCurrDirCommand(cmd_line);
+
+  else if (command_name == "kill"){
+    if (!KillCommand::validLine(split_line)){
+      cout << "smash error: kill: invalid arguments" << endl;
+      return nullptr;
+    }
+    string sig_str = split_line[1].substr(1, split_line[1].size() - 1);
+    //Convert strings to int
+    int sig_num = stoi(sig_str, nullptr, 10);
+    int job_id = stoi(split_line[2], nullptr, 10);
+    return new KillCommand(cmd_line, job_id, sig_num, nullptr); //TODO_NADAV MAYBE SEND POINTER TO JOB LIST
   }
-  else if ...
-  .....
-  */
+
   else {
     bool bg_run = false;
     //Checking for '&' symbol
@@ -302,7 +310,6 @@ Command::Command(const char* cmd_line) : cmd_line(cmd_line) {}
 BuiltInCommand::BuiltInCommand(const char* cmd_line) : Command(cmd_line) {}
 
 //____GetCurrDir___________________
-
 GetCurrDirCommand::GetCurrDirCommand(const char* cmd_line) : BuiltInCommand(cmd_line){}
 
 void GetCurrDirCommand::execute(){
@@ -311,6 +318,40 @@ void GetCurrDirCommand::execute(){
         std::cout<<dir_path<<std::endl;
     }
     delete[] dir_path;
+}
+
+//____kill____
+KillCommand::KillCommand(const char* cmd_line, int jobID, int sig_num, JobsList* job_ptr) : BuiltInCommand(cmd_line), jobID(jobID), sig_num(sig_num) {}
+
+void KillCommand::execute() {
+  
+}
+
+bool KillCommand::validLine(vector<string> line){
+  //Check number of argumants
+  if (line[3] != "" || line[2] == "" || line[1] == "")
+    return false;
+  //Check "-<signum>" format
+  string str = line[1];
+  string::iterator it = str.begin();
+  if (*it != '-')
+    return false;
+  it++;
+  while (it != str.end()){
+    if (*it < '0' || *it > '9')
+      return false;
+    it++;
+  }
+  //Check <job-id> format
+  str = line[2];
+  it = str.begin();
+  while (it != str.end()){
+    if (*it < '0' || *it > '9')
+      return false;
+    it++;
+  }
+  //Everything's fine
+  return true;
 }
 
 /*//____jobs_________________________

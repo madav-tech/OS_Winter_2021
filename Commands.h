@@ -172,10 +172,15 @@ class JobsCommand : public BuiltInCommand {
 
 class KillCommand : public BuiltInCommand {
  // TODO: Add your data members
+ private:
+  int jobID;
+  int sig_num;
  public:
-  KillCommand(const char* cmd_line, JobsList* jobs);
+  KillCommand(const char* cmd_line, int jobID, int sig_num, JobsList* jobs);
   virtual ~KillCommand() {}
   void execute() override;
+
+  static bool validLine(vector<string> line);
 };
 
 class ForegroundCommand : public BuiltInCommand {
