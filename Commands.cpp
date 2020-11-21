@@ -28,6 +28,8 @@ const std::string WHITESPACE = " \n\r\t\f\v";
 #define EXEC(path, arg) \
   execvp((path), (arg));
 
+#define MAX_DIR_LEN 260
+
 string _ltrim(const std::string& s)
 {
   size_t start = s.find_first_not_of(WHITESPACE);
@@ -134,6 +136,9 @@ Command * SmallShell::CreateCommand(const char* cmd_line) {
       return new ChangeDirCommand(cmd_line, split_line[1]);
     }
   }
+  else if (command_name == "pwd"){
+    return new GetCurrDirCommand(cmd_line);
+  }
 /*
   string cmd_s = string(cmd_line);
   if (cmd_s.find("pwd") == 0) {
@@ -215,7 +220,7 @@ ShowPidCommand::ShowPidCommand(const char* cmd_line) : BuiltInCommand(cmd_line) 
 }
 
 void ShowPidCommand::execute() {
-  printf("smash pid is %d\n", this->pid);
+  cout << "smash pid is " << this->pid << endl;
 }
 
 //_________cd_________
@@ -301,14 +306,14 @@ BuiltInCommand::BuiltInCommand(const char* cmd_line) : Command(cmd_line) {}
 GetCurrDirCommand::GetCurrDirCommand(const char* cmd_line) : BuiltInCommand(cmd_line){}
 
 void GetCurrDirCommand::execute(){
-    char * dir_path=new char[PATH_MAX];
-    if(getcwd(dir_path,PATH_MAX)!=nullptr){
+    char* dir_path = new char[MAX_DIR_LEN];
+    if(getcwd(dir_path,MAX_DIR_LEN)!=nullptr){
         std::cout<<dir_path<<std::endl;
     }
     delete[] dir_path;
 }
 
-//____jobs_________________________
+/*//____jobs_________________________
 JobsList::JobEntry::JobEntry(Command command,int process_id,bool is_stopped){
     this.command=command;
     this.process_id=process_id;
@@ -316,8 +321,7 @@ JobsList::JobEntry::JobEntry(Command command,int process_id,bool is_stopped){
     this.is_stopped=is_stopped;
 }
 void JobsList::JobEntry::PrintJob() {
-    cout<<this->command<<' : '<<
-    this->process_id<<difftime(this->insertion_time);
+    cout<<this->command << " : " << this->process_id << difftime(this->insertion_time);
 
     if(this->is_stopped){
         std::cout<<"(stopped)"
@@ -422,3 +426,4 @@ void JobsList::jobResumed(int jobId,bool is_pid=false){
     (iter->second)->started();
     this->stopped_jobs_list.erase(iter->first);
 }
+*/

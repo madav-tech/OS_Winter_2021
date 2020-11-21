@@ -125,12 +125,12 @@ class JobsList {
  public:
   class JobEntry {
    // TODO: Add your data members
-   Command command;
+   string command;
    pid_t process_id;
    time_t insertion_time;
    bool is_stopped;
   public:
-      JobEntry(Command command,int process_id, bool is_stopped);
+      JobEntry(string command,int process_id, bool is_stopped);
       void PrintJob();// prints job info
       void killJob();// kills the job using SIGKILL and prints a note
       pid_t getPID();
@@ -148,7 +148,7 @@ class JobsList {
  public:
   JobsList();
   ~JobsList();
-  void addJob(Command* cmd, bool isStopped = false, int job_pid);
+  void addJob(string cmd, int job_pid, bool isStopped = false);
   void printJobsList();
   void killAllJobs();
   void removeFinishedJobs();
