@@ -122,6 +122,15 @@ class HistoryCommand : public BuiltInCommand {
 };
 
 class JobsList {
+ 
+ // TODO: Add your data members
+ private:
+  map<int, JobEntry> running_jobs_list;
+  map<int, JobEntry> stopped_jobs_list; //holds indexes of the stopped jobs
+  map<pid_t, int> pid_to_index;
+  int next_job_ID=1;
+ 
+ 
  public:
   class JobEntry {
    // TODO: Add your data members
@@ -139,12 +148,6 @@ class JobsList {
 
   };
 
- // TODO: Add your data members
- map<int,JobEntry> running_jobs_list;
- map<int,JobEntry> stopped_jobs_list; //holds indexes of the stopped jobs
- map<pid_t,int> pid_to_index;
- int next_job_ID=1;
-
  public:
   JobsList();
   ~JobsList();
@@ -152,7 +155,7 @@ class JobsList {
   void printJobsList();
   void killAllJobs();
   void removeFinishedJobs();
-  JobEntry * getJobById(int jobId);
+  JobEntry* getJobById(int jobId);
   void removeJobById(int jobId);
   int pidToIndex(pid_t pid);
   void jobStopped(int jobId,bool is_pid=false);
@@ -160,6 +163,7 @@ class JobsList {
   //JobEntry * getLastJob(int* lastJobId);
   //JobEntry *getLastStoppedJob(int *jobId);
   // TODO: Add extra methods or modify exisitng ones as needed
+  void sendSignal(int jobId, int sig_num); //Nadav
 };
 
 class JobsCommand : public BuiltInCommand {
