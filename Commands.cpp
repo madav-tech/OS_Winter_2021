@@ -1,4 +1,5 @@
 #include <unistd.h>
+#include <string>
 #include <string.h>
 #include <iostream>
 #include <vector>
@@ -354,117 +355,92 @@ bool KillCommand::validLine(vector<string> line){
   return true;
 }
 
-/*//____jobs_________________________
-JobsList::JobEntry::JobEntry(Command command,int process_id,bool is_stopped){
-    this.command=command;
-    this.process_id=process_id;
-    time(&(this.insertion_time));
-    this.is_stopped=is_stopped;
+//____jobs_________________________
+JobsList::JobEntry::JobEntry(const string &command, int process_id, bool is_stopped)
+        :command(command), process_id(process_id), is_stopped(is_stopped){
+    time(&insertion_time);
 }
-void JobsList::JobEntry::PrintJob() {
-    cout<<this->command << " : " << this->process_id << difftime(this->insertion_time);
 
+void JobsList::JobEntry::PrintJob() {
+    time_t cur_time;
+    time(&cur_time);
+    cout<<this->command << " : " << this->process_id<<" "
+        << difftime(cur_time,this->insertion_time)<<" secs";
     if(this->is_stopped){
-        std::cout<<"(stopped)"
+        cout<<" (stopped)";
     }
     std::cout<<endl;
 }
-void JobsList::JobEntry::killJob() {
-    kill(this->process_id,SIGKILL);
-    std::cout<<this->process_id<<": "<<this->command<<endl;
-    this->is_finished= true;
+void JobsList::JobEntry::killJob(int signal,bool print) {
+    if(print){
+        cout<<"signal number "<<signal<<" was sent to pid "<<process_id<<endl;
+    }
+    kill(this->process_id,signal);
 }
-pid_t JobsList::JobEntry::getPID() {
+pid_t JobsList::JobEntry::getPID() const {
     return this->process_id;
 }
-void JobsList::JobEntry::stopped() {
-    this->is_stopped=true;
+string JobsList::JobEntry::getCommand() const {
+    return this->command;
 }
-void JobsList::JobEntry::resumed() {
-    this->is_stopped=false;
+void JobsList::JobEntry::stoppedOrResumed(bool stopping) {
+    this->is_stopped=stopping;
 }
 
-void JobsList::addJob(Command* cmd, bool isStopped = false, int job_pid){
-    Joblist::JobEntry newJob(cmd,job_pid,is_stopped);
-    this->pid_to_index[job_pid]=this->next_job_ID;
-    if(isStopped)
-        this->stopped_jobs_list[next_job_ID]=this->next_job_ID;
+void JobsList::addJob(string cmd, int job_pid, bool isStopped) {
+    JobEntry new_entry(cmd,job_pid,isStopped);
+    auto iter=this->jobs_list.rbegin();
+    int insert_to;
+    if(iter==this->jobs_list.rend())
+        insert_to=1;
     else
-        this->running_jobs_list[next_job_ID]=this->next_job_ID;
-    this->next_job_ID++;
+        insert_to=iter->first+1;
+    this->jobs_list[insert_to]=new_entry;
+    this->pid_to_index[job_pid]=insert_to;
 }
-void JobsList::printJobsList(){
+void JobsList::printJobsList() {
     this->removeFinishedJobs();
-    JobEntry *cur_job;
-    for (int i=1;i<this->next_job_ID;i++){
-        cur_job=this->getJobById(i)
-        if(cur_job== nullptr)
-            continue;
-        cout<<'['<<i<<']'<<' ';
-        cur_job.PrintJob();
+    for(auto iter=this->jobs_list.begin();iter!=this->jobs_list.end();iter++){
+        cout<<'['<<iter->first<<']';
+        iter->second.PrintJob();
     }
 }
-void JobsList::killAllJobs(){
-    int num_of_jobs=this->stopped_jobs_list.size()
-            +this->running_jobs_list.size();
-    cout<<"smash: sending SIGKILL signal to "<<num_of_jobs<<" jobs:";
-    map<int, JobEntry>::iterator iter=this->stopped_jobs_list.begin();
-    while(iter!=this->stopped_jobs_list.end())
-        iter->second.killJob();
-    iter=this->running_jobs_list.begin();
-    while(iter!=this->running_jobs_list.end())
-        iter->second.killjob();
-
+void JobsList::killAllJobs() {
+    cout<<"smash: sending SIGKILL signal to "<<this->jobs_list.size()<<"jobs:"<<endl;
+    for(auto iter=this->jobs_list.begin();iter!=this->jobs_list.end();iter++){
+        cout << iter->second.getPID() << ": " << iter->second.getCommand() << endl;
+        iter->second.killJob(SIGKILL,false);
+    }
 }
-void JobsList::removeFinishedJobs(){
+void JobsList::removeFinishedJobs() {
     int status;
     pid_t cur_pid;
     while((cur_pid=waitpid(0,&status,WNOHANG))>0){
-        kill(cur_pid,SIGKILL);
         int job_id=this->pid_to_index[cur_pid];
         this->removeJobById(job_id);
     }
 }
-JobEntry * JobsList::getJobById(int jobId){
-    if(running_jobs_list.find(jobId)!=this->running_jobs_list.end()){
-        return &running_jobs_list[jobId];
-    }
-    else if(stopped_jobs_list.find(jobId)!=this->stopped_jobs_list.end()){
-        return &stopped_jobs_list[jobId];
-    }
-    return nullptr;
+JobsList::JobEntry *JobsList::getJobById(int jobId) {
+    auto iter=this->jobs_list.find(jobId);
+    if(iter==this->jobs_list.end())
+        return nullptr;
+    return &iter->second;
 }
-void JobsList::removeJobById(int jobId){
-    this->running_jobs_list.erase(jobId);
-    this->stopped_jobs_list.erase(jobId);
+void JobsList::removeJobById(int jobId) {
+    this->pid_to_index.erase(this->jobs_list[jobId].getPID());
+    this->jobs_list.erase(jobId);
 }
-int JobsList::pidToIndex(pid_t pid){
-    if(this->pid_to_index.find(pid)== this->pid_to_index.end())
-        return -1
-    jobId=this->pid_to_index[pid]
+int JobsList::pidToIndex(pid_t pid) {
+    auto iter=this->pid_to_index.find(pid);
+    if(iter==this->pid_to_index.end())
+        return -1;
+    return iter->second;
 }
-
-void JobsList::jobStopped(int jobId,bool is_pid=false) {
-    if (is_pid)
-        jobId = this->pidToIndex(jobId);
-    map<int, JobEntry>::iterator iter;
-    iter = this->running_jobs_list.find(jobId);
-    if (iter == running_jobs_list.end())
+void JobsList::jobStoppedOrResumed(int jobId,bool isStopped) {
+    auto cur_job=this->getJobById(jobId);
+    if (cur_job== nullptr)
         return;
-    this->stopped_jobs_list[iter->first] = iter->second;
-    (iter->second)->stopped();
-    this->running_jobs_list.erase(iter->first);
-}
+    else
+        cur_job->stoppedOrResumed(isStopped);
 
-void JobsList::jobResumed(int jobId,bool is_pid=false){
-    if (is_pid)
-        jobId = this->pidToIndex(jobId);
-    map<int, JobEntry>::iterator iter;
-    iter = this->stopped_jobs_list.find(jobId);
-    if (iter == stopped_jobs_list.end())
-        return;
-    this->running_jobs_list[iter->first] = iter->second;
-    (iter->second)->started();
-    this->stopped_jobs_list.erase(iter->first);
 }
-*/

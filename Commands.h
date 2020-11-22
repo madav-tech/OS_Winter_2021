@@ -2,6 +2,7 @@
 #define SMASH_COMMAND_H_
 
 #include <vector>
+#include <map>
 
 #define COMMAND_ARGS_MAX_LENGTH (200)
 #define COMMAND_MAX_ARGS (20)
@@ -66,7 +67,7 @@ class ChangeDirCommand : public BuiltInCommand {
   virtual ~ChangeDirCommand() {}
   void execute() override;
 };
-
+//HERE
 class GetCurrDirCommand : public BuiltInCommand {
  public:
   GetCurrDirCommand(const char* cmd_line);
@@ -122,44 +123,62 @@ class HistoryCommand : public BuiltInCommand {
 };
 
 class JobsList {
- public:
-  class JobEntry {
-   // TODO: Add your data members
-   string command;
-   pid_t process_id;
-   time_t insertion_time;
-   bool is_stopped;
-  public:
-      JobEntry(string command,int process_id, bool is_stopped);
-      void PrintJob();// prints job info
-      void killJob();// kills the job using SIGKILL and prints a note
-      pid_t getPID();
-      void stopped();
-      void resumed();
+public:
+    class JobEntry {
+        // TODO: Add your data members
+        string command;
+        pid_t process_id;
+        time_t insertion_time;
+        bool is_stopped;
+    public:
+        JobEntry(const string &command,int process_id,bool is_stopped);
+        JobEntry()=default;
+        // prints job info in the format of
+        //<command> : <process id> <seconds-elapsed> (if stopped will add (stopped)
+        void PrintJob();
 
-  };
+        //sending a signal to the Job, if specified will print a note
+        //signal number <signal> was sent to pid <process id>
+        void killJob(int signal, bool print=false);
 
- // TODO: Add your data members
- map<int,JobEntry> running_jobs_list;
- map<int,JobEntry> stopped_jobs_list; //holds indexes of the stopped jobs
- map<pid_t,int> pid_to_index;
- int next_job_ID=1;
+        //returns pid
+        pid_t getPID() const;
 
- public:
-  JobsList();
-  ~JobsList();
-  void addJob(string cmd, int job_pid, bool isStopped = false);
-  void printJobsList();
-  void killAllJobs();
-  void removeFinishedJobs();
-  JobEntry * getJobById(int jobId);
-  void removeJobById(int jobId);
-  int pidToIndex(pid_t pid);
-  void jobStopped(int jobId,bool is_pid=false);
-  void jobResumed(int jobId,bool is_pid=false);
-  //JobEntry * getLastJob(int* lastJobId);
-  //JobEntry *getLastStoppedJob(int *jobId);
-  // TODO: Add extra methods or modify exisitng ones as needed
+        //return command
+        string getCommand() const;
+
+        //if set as stopped if stopping is true
+        void stoppedOrResumed(bool stopping);
+    };
+private:
+    std::map<int,JobEntry> jobs_list;
+    map<pid_t,int> pid_to_index;
+    // TODO: Add your data members
+public:
+    JobsList()=default;
+    ~JobsList()=default;
+
+    //adds new  job into the list
+    void addJob(string cmd, int job_pid, bool isStopped = false);
+
+    //prints the jobs
+    void printJobsList();
+
+    //killing all jobs. prints in format:
+    //<job_pid>: <command>
+    void killAllJobs();
+
+    //removing from list finished jobs.
+    void removeFinishedJobs();
+
+    JobEntry * getJobById(int jobId);
+
+    //remove a Job, does not kill.
+    void removeJobById(int jobId);
+
+    int pidToIndex(pid_t pid);
+    void jobStoppedOrResumed(int jobId,bool isStopped);
+    // TODO: Add extra methods or modify exisitng ones as needed
 };
 
 class JobsCommand : public BuiltInCommand {
