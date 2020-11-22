@@ -110,6 +110,7 @@ SmallShell::SmallShell() {
 // TODO: add your implementation
   this->prompt = "smash> ";
   this->prev_dir = "\0";
+  this->job_list = JobsList();
 }
 
 SmallShell::~SmallShell() {
@@ -153,7 +154,11 @@ Command * SmallShell::CreateCommand(const char* cmd_line) {
     //Convert strings to int
     int sig_num = stoi(sig_str, nullptr, 10);
     int job_id = stoi(split_line[2], nullptr, 10);
-    return new KillCommand(cmd_line, job_id, sig_num, nullptr); //TODO_NADAV MAYBE SEND POINTER TO JOB LIST
+    return new KillCommand(cmd_line, job_id, sig_num); //TODO_NADAV MAYBE SEND POINTER TO JOB LIST
+  }
+
+  else if (command_name == "jobs"){
+    return new JobsCommand(cmd_line);
   }
 
   else {
@@ -208,6 +213,10 @@ string SmallShell::getPrevDir(){
 
 void SmallShell::setPrevDir(string new_dir){
   this->prev_dir = new_dir;
+}
+
+JobsList* SmallShell::getJobList(){
+  return &this->job_list;
 }
 
 //_________chprompt_________
@@ -273,7 +282,7 @@ ExternalCommand::ExternalCommand(const char* cmd_line, vector<string> ext_args, 
 }
 
 void ExternalCommand::execute() {
-  //FORK AND THEN PASS ARGUMANTS TO BASH THROUGH EXECV()
+
   int p = fork();
 
   if(p < 0){
@@ -286,6 +295,8 @@ void ExternalCommand::execute() {
     }
   }
   else {
+    setpgrp();
+    SmallShell::getInstance().getJobList()->addJob(string(cmd_line), p, false);
     string command = "";
     for (vector<string>::iterator it = this->args.begin(); it != this->args.end(); it++){
       command += (*it + " ");
@@ -322,10 +333,10 @@ void GetCurrDirCommand::execute(){
 }
 
 //____kill____
-KillCommand::KillCommand(const char* cmd_line, int jobID, int sig_num, JobsList* job_ptr) : BuiltInCommand(cmd_line), jobID(jobID), sig_num(sig_num) {}
+KillCommand::KillCommand(const char* cmd_line, int jobID, int sig_num) : BuiltInCommand(cmd_line), jobID(jobID), sig_num(sig_num) {}
 
 void KillCommand::execute() {
-  
+  SmallShell::getInstance().getJobList()->sendSignal(jobID, sig_num);
 }
 
 bool KillCommand::validLine(vector<string> line){
@@ -364,83 +375,116 @@ JobsList::JobEntry::JobEntry(const string &command, int process_id, bool is_stop
 void JobsList::JobEntry::PrintJob() {
     time_t cur_time;
     time(&cur_time);
-    cout<<this->command << " : " << this->process_id<<" "
-        << difftime(cur_time,this->insertion_time)<<" secs";
+    cout << this->command << " : " << this->process_id << " " 
+         << difftime(cur_time,this->insertion_time) << " secs";
     if(this->is_stopped){
-        cout<<" (stopped)";
+        cout << " (stopped)";
     }
-    std::cout<<endl;
+    std::cout << endl;
 }
+
 void JobsList::JobEntry::killJob(int signal,bool print) {
     if(print){
-        cout<<"signal number "<<signal<<" was sent to pid "<<process_id<<endl;
+        cout << "signal number " << signal << " was sent to pid " << process_id << endl;
     }
-    kill(this->process_id,signal);
+    if(kill(this->process_id,signal) != 0){
+      perror("“smash error: kill failed");
+    }
 }
+
 pid_t JobsList::JobEntry::getPID() const {
     return this->process_id;
 }
+
 string JobsList::JobEntry::getCommand() const {
     return this->command;
 }
+
 void JobsList::JobEntry::stoppedOrResumed(bool stopping) {
     this->is_stopped=stopping;
 }
 
 void JobsList::addJob(string cmd, int job_pid, bool isStopped) {
-    JobEntry new_entry(cmd,job_pid,isStopped);
-    auto iter=this->jobs_list.rbegin();
+    JobEntry new_entry(cmd, job_pid, isStopped);
+    auto iter = this->job_list.rbegin();
     int insert_to;
-    if(iter==this->jobs_list.rend())
-        insert_to=1;
+    if(iter == this->job_list.rend())
+        insert_to = 1;
     else
-        insert_to=iter->first+1;
-    this->jobs_list[insert_to]=new_entry;
-    this->pid_to_index[job_pid]=insert_to;
+        insert_to = iter->first + 1;
+    this->job_list[insert_to] = new_entry;
+    this->pid_to_index[job_pid] = insert_to;
+
+    //PRINTING JOB LIST ON EACH INSERT FOR TESTING
+    for (auto it = this->job_list.begin(); it != this->job_list.end(); it++) {
+      cout << "ID: " << it->first << ", Command: " << it->second.getCommand();
+    }
 }
+
 void JobsList::printJobsList() {
     this->removeFinishedJobs();
-    for(auto iter=this->jobs_list.begin();iter!=this->jobs_list.end();iter++){
-        cout<<'['<<iter->first<<']';
+    for(auto iter = this->job_list.begin(); iter != this->job_list.end(); iter++){
+        cout << '[' << iter->first << ']';
         iter->second.PrintJob();
     }
 }
+
 void JobsList::killAllJobs() {
-    cout<<"smash: sending SIGKILL signal to "<<this->jobs_list.size()<<"jobs:"<<endl;
-    for(auto iter=this->jobs_list.begin();iter!=this->jobs_list.end();iter++){
+    cout<<"smash: sending SIGKILL signal to "<<this->job_list.size()<<"jobs:"<<endl;
+    for(auto iter=this->job_list.begin();iter!=this->job_list.end();iter++){
         cout << iter->second.getPID() << ": " << iter->second.getCommand() << endl;
         iter->second.killJob(SIGKILL,false);
     }
 }
+
 void JobsList::removeFinishedJobs() {
     int status;
     pid_t cur_pid;
-    while((cur_pid=waitpid(0,&status,WNOHANG))>0){
-        int job_id=this->pid_to_index[cur_pid];
+    while((cur_pid = waitpid(0, &status, WNOHANG)) > 0){
+        int job_id = this->pid_to_index[cur_pid];
         this->removeJobById(job_id);
     }
 }
+
 JobsList::JobEntry *JobsList::getJobById(int jobId) {
-    auto iter=this->jobs_list.find(jobId);
-    if(iter==this->jobs_list.end())
+    auto iter = this->job_list.find(jobId);
+    if(iter == this->job_list.end())
         return nullptr;
     return &iter->second;
 }
+
 void JobsList::removeJobById(int jobId) {
-    this->pid_to_index.erase(this->jobs_list[jobId].getPID());
-    this->jobs_list.erase(jobId);
+    this->pid_to_index.erase(this->job_list[jobId].getPID());
+    this->job_list.erase(jobId);
 }
+
 int JobsList::pidToIndex(pid_t pid) {
-    auto iter=this->pid_to_index.find(pid);
-    if(iter==this->pid_to_index.end())
+    auto iter = this->pid_to_index.find(pid);
+    if(iter == this->pid_to_index.end())
         return -1;
     return iter->second;
 }
+
 void JobsList::jobStoppedOrResumed(int jobId,bool isStopped) {
-    auto cur_job=this->getJobById(jobId);
-    if (cur_job== nullptr)
+    auto cur_job = this->getJobById(jobId);
+    if (cur_job == nullptr)
         return;
     else
         cur_job->stoppedOrResumed(isStopped);
+}
 
+void JobsList::sendSignal(int jobID, int sig_num){
+  if (this->job_list.find(jobID) == this->job_list.end()) {
+    cout << "smash error: kill: job-id " << jobID << " does not exist" << endl;
+  }
+  else {
+    this->job_list[jobID].killJob(sig_num, true);
+  }
+}
+
+//____jobsCommand____
+JobsCommand::JobsCommand(const char* cmd_line) : BuiltInCommand(cmd_line) {}
+
+void JobsCommand::execute(){
+  SmallShell::getInstance().getJobList()->printJobsList();
 }

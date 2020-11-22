@@ -151,7 +151,7 @@ public:
         void stoppedOrResumed(bool stopping);
     };
 private:
-    std::map<int,JobEntry> jobs_list;
+    std::map<int,JobEntry> job_list;
     map<pid_t,int> pid_to_index;
     // TODO: Add your data members
 public:
@@ -179,12 +179,14 @@ public:
     int pidToIndex(pid_t pid);
     void jobStoppedOrResumed(int jobId,bool isStopped);
     // TODO: Add extra methods or modify exisitng ones as needed
+
+    void sendSignal(int jobID, int sig_num);
 };
 
 class JobsCommand : public BuiltInCommand {
  // TODO: Add your data members
  public:
-  JobsCommand(const char* cmd_line, JobsList* jobs);
+  JobsCommand(const char* cmd_line);
   virtual ~JobsCommand() {}
   void execute() override;
 };
@@ -195,7 +197,7 @@ class KillCommand : public BuiltInCommand {
   int jobID;
   int sig_num;
  public:
-  KillCommand(const char* cmd_line, int jobID, int sig_num, JobsList* jobs);
+  KillCommand(const char* cmd_line, int jobID, int sig_num);
   virtual ~KillCommand() {}
   void execute() override;
 
@@ -226,6 +228,7 @@ class SmallShell {
   // TODO: Add your data members
   string prev_dir;
   string prompt;
+  JobsList job_list;
 
   SmallShell();
  public:
@@ -246,6 +249,8 @@ class SmallShell {
 
   string getPrevDir();
   void setPrevDir(string new_dir);
+
+  JobsList* getJobList();
 };
 
 #endif //SMASH_COMMAND_H_
