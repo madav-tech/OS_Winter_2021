@@ -161,7 +161,7 @@ Command * SmallShell::CreateCommand(const char* cmd_line) {
     return new JobsCommand(cmd_line);
   }
 
-  else {
+  else if (command_name != "") {
     bool bg_run = false;
     //Checking for '&' symbol
     for (vector<string>::iterator it = split_line.begin(); it != split_line.end(); it++){
@@ -290,13 +290,13 @@ void ExternalCommand::execute() {
     return;
   }
   else if (p > 0){
+    SmallShell::getInstance().getJobList()->addJob(string(cmd_line), p, false);
     if(!this->bg_run){
       wait(NULL);
     }
   }
   else {
     setpgrp();
-    SmallShell::getInstance().getJobList()->addJob(string(cmd_line), p, false);
     string command = "";
     for (vector<string>::iterator it = this->args.begin(); it != this->args.end(); it++){
       command += (*it + " ");
@@ -388,7 +388,7 @@ void JobsList::JobEntry::killJob(int signal,bool print) {
         cout << "signal number " << signal << " was sent to pid " << process_id << endl;
     }
     if(kill(this->process_id,signal) != 0){
-      perror("“smash error: kill failed");
+      perror("smash error: kill failed");
     }
 }
 
@@ -415,10 +415,10 @@ void JobsList::addJob(string cmd, int job_pid, bool isStopped) {
     this->job_list[insert_to] = new_entry;
     this->pid_to_index[job_pid] = insert_to;
 
-    //PRINTING JOB LIST ON EACH INSERT FOR TESTING
-    for (auto it = this->job_list.begin(); it != this->job_list.end(); it++) {
-      cout << "ID: " << it->first << ", Command: " << it->second.getCommand();
-    }
+    // //PRINTING JOB LIST ON EACH INSERT FOR TESTING
+    // for (auto it = this->job_list.begin(); it != this->job_list.end(); it++) {
+    //   cout << "ID: " << it->first << ", Command: " << it->second.getCommand() << endl;
+    // }
 }
 
 void JobsList::printJobsList() {
@@ -439,11 +439,34 @@ void JobsList::killAllJobs() {
 
 void JobsList::removeFinishedJobs() {
     int status;
-    pid_t cur_pid;
-    while((cur_pid = waitpid(0, &status, WNOHANG)) > 0){
+    pid_t cur_pid = waitpid(0, &status, WNOHANG);
+    cout << "cur_pid: " << cur_pid << ", status: " << status << endl;
+    while(cur_pid > 0){
         int job_id = this->pid_to_index[cur_pid];
         this->removeJobById(job_id);
+        cur_pid = waitpid(0, &status, WNOHANG);
     }
+    // // Nadav's try to change implementation (doesn't work obviously...)
+    // int status;
+    // pid_t pid;
+    // int res;
+
+    // auto it = this->job_list.begin();
+    // while (it != this->job_list.end()){
+    //   pid = it->second.getPID();
+    //   cout << "PID: " << pid << endl; //TEST
+    //   res = waitpid(-1, &status, WNOHANG);
+    //   if (res < 0){
+    //     perror("smash error: waitpid failed");
+    //     continue;
+    //   }
+    //   else if (res == pid){
+    //     int job_id = this->pid_to_index[pid];
+    //     this->removeJobById(job_id);
+    //   }
+    //   it++;
+    // }
+
 }
 
 JobsList::JobEntry *JobsList::getJobById(int jobId) {
