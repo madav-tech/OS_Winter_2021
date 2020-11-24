@@ -8,6 +8,7 @@
 #include <sys/wait.h>
 #include <iomanip>
 #include "Commands.h"
+#include <dirent.h>
 
 using namespace std;
 
@@ -122,6 +123,7 @@ SmallShell::~SmallShell() {
 */
 Command * SmallShell::CreateCommand(const char* cmd_line) {
     // For example:
+
     vector<string> split_line = _parseLine(cmd_line);
     string command_name = split_line[0];
     if(command_name == "chprompt") {
@@ -156,11 +158,12 @@ Command * SmallShell::CreateCommand(const char* cmd_line) {
         int job_id = stoi(split_line[2], nullptr, 10);
         return new KillCommand(cmd_line, job_id, sig_num); //TODO_NADAV MAYBE SEND POINTER TO JOB LIST
     }
-
     else if (command_name == "jobs"){
         return new JobsCommand(cmd_line);
     }
-
+    else if (command_name == "ls"){
+        return new ListDirectoryContents(cmd_line);
+    }
     else {
         bool bg_run = false;
         //Checking for '&' symbol
@@ -493,3 +496,18 @@ JobsCommand::JobsCommand(const char* cmd_line) : BuiltInCommand(cmd_line) {}
 void JobsCommand::execute(){
     SmallShell::getInstance().getJobList()->printJobsList();
 }
+
+//________ls________
+
+ListDirectoryContents::ListDirectoryContents(const char* cmd_line) : BuiltInCommand(cmd_line){}
+
+void ListDirectoryContents::execute() {
+    struct dirent ** dir;
+    int test=scandir(".", &dir, NULL, alphasort);
+    for(int i=0;i<test;i++){
+        cout<<dir[i]->d_name<<endl;
+        free(dir[i]);
+    }
+    free(dir);
+}
+
