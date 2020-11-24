@@ -282,21 +282,7 @@ ExternalCommand::ExternalCommand(const char* cmd_line, vector<string> ext_args, 
 }
 
 void ExternalCommand::execute() {
-    string command;
-    for (vector<string>::iterator it = this->args.begin(); it != this->args.end(); it++){
-        if(*it!= "&")
-            command += (*it + " ");
-    }
 
-    command+=";";
-    string word=" && exit";
-    char* args[4];
-    args[0] = "/bin/bash";
-    args[1] = "-c";
-    args[3] = NULL;
-    char cmd[200] = "";
-    strcat(cmd, command.c_str());
-    args[2] = cmd;
     int p = fork();
 
     if(p < 0){
@@ -313,6 +299,19 @@ void ExternalCommand::execute() {
     }
     else {
         setpgrp();
+        string command;
+        for (vector<string>::iterator it = this->args.begin(); it != this->args.end(); it++){
+            if(*it!= "&")
+                command += (*it + " ");
+        }
+        command+=";";
+        char* args[4];
+        args[0] = string("/bin/bash");
+        args[1] = string("-c");
+        args[3] = NULL;
+        char cmd[200] = "";
+        strcat(cmd, command.c_str());
+        args[2] = cmd;
 
         if (execv(args[0], args) < 0){
             perror("smash error: execv failed");
@@ -421,10 +420,10 @@ void JobsList::addJob(string cmd, int job_pid, bool isStopped) {
     this->job_list[insert_to] = new_entry;
     this->pid_to_index[job_pid] = insert_to;
 
-    //PRINTING JOB LIST ON EACH INSERT FOR TESTING
-    for (auto it = this->job_list.begin(); it != this->job_list.end(); it++) {
-        cout << "ID: " << it->first << ", Command: " << it->second.getCommand();
-    }
+    // //PRINTING JOB LIST ON EACH INSERT FOR TESTING
+    // for (auto it = this->job_list.begin(); it != this->job_list.end(); it++) {
+    //   cout << "ID: " << it->first << ", Command: " << it->second.getCommand() << endl;
+    // }
 }
 
 void JobsList::printJobsList() {
