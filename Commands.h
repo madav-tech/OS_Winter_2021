@@ -93,9 +93,13 @@ class ShowPidCommand : public BuiltInCommand {
 };
 
 class JobsList;
+
 class QuitCommand : public BuiltInCommand {
 // TODO: Add your data members public:
-  QuitCommand(const char* cmd_line, JobsList* jobs);
+  JobsList * jobs;
+  bool kill;
+public:
+  QuitCommand(const char* cmd_line, JobsList* jobs, bool kill);
   virtual ~QuitCommand() {}
   void execute() override;
 };
@@ -176,7 +180,7 @@ public:
 
     //killing all jobs. prints in format:
     //<job_pid>: <command>
-    void killAllJobs();
+    void killAllJobs(bool kill);
 
     //removing from list finished jobs.
     void removeFinishedJobs();

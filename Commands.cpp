@@ -198,6 +198,14 @@ Command * SmallShell::CreateCommand(const char* cmd_line) {
       return new ForegroundCommand(cmd_line, job_id);
     }
 
+    else if(command_name == "quit"){
+        JobsList* jobs=this->getJobList();
+        bool kill=false;
+        if(split_line[1]=="kill")
+            kill=true;
+        return new QuitCommand(cmd_line,jobs,kill);
+    }
+
     else if (command_name != "") {
         bool bg_run = false;
 
@@ -214,6 +222,7 @@ Command * SmallShell::CreateCommand(const char* cmd_line) {
 void SmallShell::executeCommand(const char *cmd_line) {
     // TODO: Add your implementation here
     // for example:
+    getInstance().job_list.removeFinishedJobs();
     Command* cmd = CreateCommand(cmd_line);
     if (cmd != nullptr) {
         cmd->execute();
@@ -309,6 +318,7 @@ ExternalCommand::ExternalCommand(const char* cmd_line, bool bg_run) : Command(cm
 }
 
 void ExternalCommand::execute() {
+    cout<<"###external###"<<endl;
 
     int p = fork();
 
@@ -462,17 +472,18 @@ void JobsList::addJob(string cmd, int job_pid, bool isStopped) {
 }
 
 void JobsList::printJobsList() {
-    this->removeFinishedJobs();
     for(auto iter = this->job_list.begin(); iter != this->job_list.end(); iter++){
         cout << '[' << iter->first << ']';
         iter->second.PrintJob();
     }
 }
 
-void JobsList::killAllJobs() {
-    cout<<"smash: sending SIGKILL signal to " << this->job_list.size() << "jobs:" << endl;
+void JobsList::killAllJobs(bool kill) {
+    if(kill)
+        cout<<"smash: sending SIGKILL signal to " << this->job_list.size() << " jobs:" << endl;
     for(auto iter = this->job_list.begin(); iter != this->job_list.end(); iter++){
-        cout << iter->second.getPID() << ": " << iter->second.getCommand() << endl;
+        if(kill)
+            cout << iter->second.getPID() << ": " << iter->second.getCommand() << endl;
         iter->second.killJob(SIGKILL,false);
     }
 }
@@ -601,4 +612,13 @@ int ForegroundCommand::validLine(vector<string> split){
     }
   }
   return FG_VALID;
+}
+
+
+//________quit___________
+QuitCommand::QuitCommand(const char* cmd_line,JobsList* jobs , bool kill = false) :
+                                    BuiltInCommand(cmd_line) , jobs(jobs) , kill(kill){}
+void QuitCommand::execute(){
+    this->jobs->killAllJobs(this->kill);
+    exit(0);
 }
