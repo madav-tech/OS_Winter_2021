@@ -35,7 +35,7 @@ class ExternalCommand : public Command {
   vector<string> args;
   bool bg_run;
  public:
-  ExternalCommand(const char* cmd_line, vector<string> ext_args, bool bg_run);
+  ExternalCommand(const char* cmd_line, bool bg_run);
   virtual ~ExternalCommand() {}
   void execute() override;
 };

@@ -164,25 +164,15 @@ Command * SmallShell::CreateCommand(const char* cmd_line) {
     else if (command_name == "ls"){
         return new ListDirectoryContents(cmd_line);
     }
-    else {
+    else if (command_name != "") {
         bool bg_run = false;
+
         //Checking for '&' symbol
-        for (vector<string>::iterator it = split_line.begin(); it != split_line.end(); it++){
-            if (*it == "&"){
-                bg_run = true;
-                break;
-            }
+        if (_isBackgroundComamnd(cmd_line)){
+          bg_run = true;
         }
-        //Filtering arguments for external command
-        vector<string> ext_args = vector<string>(20);
-        int i = 0;
-        for (vector<string>::iterator it = split_line.begin(); it != split_line.end(); it++){
-            if (*it != "&"){
-                ext_args[i] = *it;
-                i++;
-            }
-        }
-        return new ExternalCommand(cmd_line, ext_args, bg_run);
+
+        return new ExternalCommand(cmd_line, bg_run);
     }
     return nullptr;
 }
@@ -280,7 +270,7 @@ void ChangeDirCommand::execute(){
 
 //_________ExternalCommand_________
 
-ExternalCommand::ExternalCommand(const char* cmd_line, vector<string> ext_args, bool bg_run) : Command(cmd_line), args(ext_args), bg_run(bg_run) {
+ExternalCommand::ExternalCommand(const char* cmd_line, bool bg_run) : Command(cmd_line), bg_run(bg_run) {
 
 }
 
@@ -301,21 +291,29 @@ void ExternalCommand::execute() {
         }
     }
     else {
+
         setpgrp();
-        string command="";
-        for (vector<string>::iterator it = this->args.begin(); it != this->args.end(); it++){
-            if(*it!= "&")
-                command += (*it + " ");
+        string temp_line = string(this->cmd_line);
+        temp_line += ";";
+
+        //Removing '&'
+        if (this->bg_run){
+          for (auto it = temp_line.begin(); it != temp_line.end(); it++){
+            if (*it == '&'){
+              temp_line.erase(it);
+              break;
+            }
+          }
         }
 
-        command+=";";
+        char sent_cmd[200] = "";
+        strcat(sent_cmd, temp_line.c_str());
+
         char* args[4];
         args[0] = "/bin/bash";
         args[1] = "-c";
         args[3] = NULL;
-        char cmd[200] = "";
-        strcat(cmd, command.c_str());
-        args[2] = cmd;
+        args[2] = sent_cmd;
         if (execv(args[0], args) < 0){
             perror("smash error: execv failed");
             exit(1);
@@ -424,9 +422,9 @@ void JobsList::addJob(string cmd, int job_pid, bool isStopped) {
     this->pid_to_index[job_pid] = insert_to;
 
     //PRINTING JOB LIST ON EACH INSERT FOR TESTING
-    //for (auto it = this->job_list.begin(); it != this->job_list.end(); it++) {
-    //    cout << "ID: " << it->first << ", Command: " << it->second.getCommand();
-    //}
+    // for (auto it = this->job_list.begin(); it != this->job_list.end(); it++) {
+    //    cout << "ID: " << it->first << ", Command: " << it->second.getCommand() << endl;
+    // }
 }
 
 void JobsList::printJobsList() {
@@ -438,8 +436,8 @@ void JobsList::printJobsList() {
 }
 
 void JobsList::killAllJobs() {
-    cout<<"smash: sending SIGKILL signal to "<<this->job_list.size()<<"jobs:"<<endl;
-    for(auto iter=this->job_list.begin();iter!=this->job_list.end();iter++){
+    cout<<"smash: sending SIGKILL signal to " << this->job_list.size() << "jobs:" << endl;
+    for(auto iter = this->job_list.begin(); iter != this->job_list.end(); iter++){
         cout << iter->second.getPID() << ": " << iter->second.getCommand() << endl;
         iter->second.killJob(SIGKILL,false);
     }
@@ -449,6 +447,7 @@ void JobsList::removeFinishedJobs() {
     int status;
     pid_t cur_pid;
     while((cur_pid=waitpid(-1, &status, WNOHANG)) > 0){
+        cout << "REMOVED" << endl;
         int job_id = this->pid_to_index[cur_pid];
         this->removeJobById(job_id);
     }
@@ -502,7 +501,7 @@ void JobsCommand::execute(){
 ListDirectoryContents::ListDirectoryContents(const char* cmd_line) : BuiltInCommand(cmd_line){}
 
 void ListDirectoryContents::execute() {
-    struct dirent ** dir;
+    struct dirent** dir;
     int test=scandir(".", &dir, NULL, alphasort);
     for(int i=0;i<test;i++){
         cout<<dir[i]->d_name<<endl;
@@ -510,4 +509,3 @@ void ListDirectoryContents::execute() {
     }
     free(dir);
 }
-
