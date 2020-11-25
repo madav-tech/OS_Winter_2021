@@ -76,7 +76,6 @@ class GetCurrDirCommand : public BuiltInCommand {
 };
 
 
-//_________ls______________
 class ListDirectoryContents : public BuiltInCommand {
 public:
     ListDirectoryContents(const char* cmd_line);
@@ -158,6 +157,8 @@ public:
 
         //if set as stopped if stopping is true
         void stoppedOrResumed(bool stopping);
+
+        bool checkStopped();
     };
 private:
     std::map<int,JobEntry> job_list;
@@ -190,6 +191,9 @@ public:
     // TODO: Add extra methods or modify exisitng ones as needed
 
     void sendSignal(int jobID, int sig_num);
+    int lastJob();
+    bool checkStopped(int jobID);
+    bool isEmpty();
 };
 
 class JobsCommand : public BuiltInCommand {
@@ -215,10 +219,14 @@ class KillCommand : public BuiltInCommand {
 
 class ForegroundCommand : public BuiltInCommand {
  // TODO: Add your data members
+ private:
+  int job_id;
+
  public:
-  ForegroundCommand(const char* cmd_line, JobsList* jobs);
+  ForegroundCommand(const char* cmd_line, int job_id);
   virtual ~ForegroundCommand() {}
   void execute() override;
+  static int validLine(vector<string> split_line);
 };
 
 class BackgroundCommand : public BuiltInCommand {

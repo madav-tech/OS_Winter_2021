@@ -32,6 +32,15 @@ const std::string WHITESPACE = " \n\r\t\f\v";
 
 #define MAX_DIR_LEN 260
 
+
+
+// 0->Valid, 1->Job doesn't exist, 2->No args but job list is empty, 3->Invalid args
+#define FG_VALID 0
+#define FG_JOB_ID_INVALID 1
+#define FG_LIST_EMPTY 2
+#define FG_INVALID_ARGS 3
+
+
 string _ltrim(const std::string& s)
 {
     size_t start = s.find_first_not_of(WHITESPACE);
@@ -158,12 +167,37 @@ Command * SmallShell::CreateCommand(const char* cmd_line) {
         int job_id = stoi(split_line[2], nullptr, 10);
         return new KillCommand(cmd_line, job_id, sig_num); //TODO_NADAV MAYBE SEND POINTER TO JOB LIST
     }
+
     else if (command_name == "jobs"){
         return new JobsCommand(cmd_line);
     }
+
     else if (command_name == "ls"){
         return new ListDirectoryContents(cmd_line);
     }
+
+    else if(command_name == "fg"){
+      int job_id = 0;
+      int validity = ForegroundCommand::validLine(split_line);
+      if (validity == FG_JOB_ID_INVALID){
+        cout << "smash error: fg: job-id " << stoi(split_line[1]) << " does not exist" << endl;
+        return nullptr;
+      }
+      if (validity == FG_LIST_EMPTY){
+        cout << "smash error: fg: jobs list is empty" << endl;
+        return nullptr;
+      }
+      if (validity == FG_INVALID_ARGS){
+        cout << "smash error: fg: invalid arguments" << endl;
+        return nullptr;
+      }
+      if (split_line[1] != "")
+        job_id = stoi(split_line[1]);
+      else
+        job_id = -1;
+      return new ForegroundCommand(cmd_line, job_id);
+    }
+
     else if (command_name != "") {
         bool bg_run = false;
 
@@ -460,6 +494,10 @@ JobsList::JobEntry *JobsList::getJobById(int jobId) {
     return &iter->second;
 }
 
+bool JobsList::JobEntry::checkStopped(){
+  return this->is_stopped;
+}
+
 void JobsList::removeJobById(int jobId) {
     this->pid_to_index.erase(this->job_list[jobId].getPID());
     this->job_list.erase(jobId);
@@ -489,6 +527,18 @@ void JobsList::sendSignal(int jobID, int sig_num){
     }
 }
 
+int JobsList::lastJob(){
+  return this->job_list.rbegin()->first;
+}
+
+bool JobsList::checkStopped(int jobID){
+  return this->job_list[jobID].checkStopped();
+}
+
+bool JobsList::isEmpty(){
+  return this->job_list.empty();
+}
+
 //____jobsCommand____
 JobsCommand::JobsCommand(const char* cmd_line) : BuiltInCommand(cmd_line) {}
 
@@ -508,4 +558,47 @@ void ListDirectoryContents::execute() {
         free(dir[i]);
     }
     free(dir);
+}
+
+
+//______fg________
+ForegroundCommand::ForegroundCommand(const char* cmd_line, int job_id) : BuiltInCommand(cmd_line){
+  if (job_id <= 0){
+    this->job_id = SmallShell::getInstance().getJobList()->lastJob();
+  }
+  else{
+    this->job_id = job_id;
+  }
+}
+
+void ForegroundCommand::execute(){
+  if (SmallShell::getInstance().getJobList()->checkStopped(this->job_id)){
+    SmallShell::getInstance().getJobList()->sendSignal(this->job_id, SIGCONT);
+  }
+  pid_t pid = SmallShell::getInstance().getJobList()->getJobById(this->job_id)->getPID();
+  waitpid(pid, NULL, WUNTRACED);
+  SmallShell::getInstance().getJobList()->removeJobById(this->job_id);
+}
+
+// 0->Valid, 1->Job doesn't exist, 2->No args but job list is empty, 3->Invalid args
+int ForegroundCommand::validLine(vector<string> split){
+  if(split[2] != "")
+    return FG_INVALID_ARGS;
+
+  if (split[1] != ""){
+    for (auto it = split[1].begin(); it != split[1].end(); it++){
+      if (*it < '0' || *it > '9')
+        return FG_INVALID_ARGS;
+    }
+    int job_id = stoi(split[1]);
+    if (SmallShell::getInstance().getJobList()->getJobById(job_id) == nullptr){
+      return FG_JOB_ID_INVALID;
+    }
+  }
+  else {
+    if (SmallShell::getInstance().getJobList()->isEmpty()){
+      return FG_LIST_EMPTY;
+    }
+  }
+  return FG_VALID;
 }
