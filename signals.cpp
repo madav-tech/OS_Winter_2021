@@ -10,7 +10,14 @@ void ctrlZHandler(int sig_num) {
 }
 
 void ctrlCHandler(int sig_num) {
-  exit(1);
+  cout << "smash: got ctrl-C" << endl;
+  JobsList::JobEntry* job = SmallShell::getInstance().getCurrentJob();
+  if (job != nullptr) {
+    pid_t pid = job->getPID();
+    job->killJob(SIGKILL, false);
+    cout << "smash: process " << pid << " was killed" << endl;
+    SmallShell::getInstance().setCurrentJob(nullptr);
+  }
 }
 
 void alarmHandler(int sig_num) {
