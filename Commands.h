@@ -246,6 +246,7 @@ class SmallShell {
   string prev_dir;
   string prompt;
   JobsList job_list;
+  JobsList::JobEntry* current_job;
 
   SmallShell();
  public:
@@ -268,6 +269,10 @@ class SmallShell {
   void setPrevDir(string new_dir);
 
   JobsList* getJobList();
+
+  JobsList::JobEntry* getCurrentJob();
+  void setCurrentJob(JobsList::JobEntry* job);
+
 };
 
 #endif //SMASH_COMMAND_H_
