@@ -50,9 +50,12 @@ class PipeCommand : public Command {
 
 class RedirectionCommand : public Command {
  // TODO: Add your data members
+ Command* redirected_command;
+ string file;
+ bool append;
  public:
-  explicit RedirectionCommand(const char* cmd_line);
-  virtual ~RedirectionCommand() {}
+  explicit RedirectionCommand(const char* ,Command* redirected_command, string file, string append);
+  virtual ~RedirectionCommand();
   void execute() override;
   //void prepare() override;
   //void cleanup() override;
@@ -74,7 +77,6 @@ class GetCurrDirCommand : public BuiltInCommand {
   virtual ~GetCurrDirCommand() {}
   void execute() override;
 };
-
 
 class ListDirectoryContents : public BuiltInCommand {
 public:

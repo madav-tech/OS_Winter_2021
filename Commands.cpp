@@ -9,7 +9,7 @@
 #include <iomanip>
 #include "Commands.h"
 #include <dirent.h>
-
+#include <fcntl.h>
 using namespace std;
 
 const std::string WHITESPACE = " \n\r\t\f\v";
@@ -132,9 +132,22 @@ SmallShell::~SmallShell() {
 */
 Command * SmallShell::CreateCommand(const char* cmd_line) {
     // For example:
-
     vector<string> split_line = _parseLine(cmd_line);
     string command_name = split_line[0];
+    for(auto iter=split_line.begin();iter!=split_line.end();iter++){
+        if(*iter==">"||*iter==">>"){
+            string string_command="";
+            for(auto command_iter=split_line.begin();command_iter!=iter;command_iter++){
+                string_command+=*command_iter;
+                string_command+=" ";
+            }
+            Command * redirection_command=this->CreateCommand(string_command.c_str());
+            return new RedirectionCommand(cmd_line,redirection_command,*(iter+1),*iter);
+
+        }
+
+    }
+
     if(command_name == "chprompt") {
         return new ChpromptCommand(cmd_line, split_line[1]);
     }
@@ -206,7 +219,7 @@ Command * SmallShell::CreateCommand(const char* cmd_line) {
         return new QuitCommand(cmd_line,jobs,kill);
     }
 
-    else if (command_name != "") {
+    else if (!command_name.empty()) {
         bool bg_run = false;
 
         //Checking for '&' symbol
@@ -227,6 +240,7 @@ void SmallShell::executeCommand(const char *cmd_line) {
     if (cmd != nullptr) {
         cmd->execute();
     }
+    delete cmd;
     // Command* cmd = CreateCommand(cmd_line);
     // cmd->execute();
     // Please note that you must fork smash process for some commands (e.g., external commands....)
@@ -492,7 +506,6 @@ void JobsList::removeFinishedJobs() {
     int status;
     pid_t cur_pid;
     while((cur_pid=waitpid(-1, &status, WNOHANG)) > 0){
-        cout << "REMOVED" << endl;
         int job_id = this->pid_to_index[cur_pid];
         this->removeJobById(job_id);
     }
@@ -617,8 +630,45 @@ int ForegroundCommand::validLine(vector<string> split){
 
 //________quit___________
 QuitCommand::QuitCommand(const char* cmd_line,JobsList* jobs , bool kill = false) :
-                                    BuiltInCommand(cmd_line) , jobs(jobs) , kill(kill){}
+                         BuiltInCommand(cmd_line) , jobs(jobs) , kill(kill){}
 void QuitCommand::execute(){
     this->jobs->killAllJobs(this->kill);
     exit(0);
+}
+
+//________RedirectionCommand__________
+RedirectionCommand::RedirectionCommand(const char* cmd_line,Command* redirected_command, string file, string append):
+        Command(cmd_line),redirected_command(redirected_command),file(file){
+    if(append== ">>")
+        this->append=true;
+    else
+        this->append=false;
+}
+
+// TODO : errors handling?
+void RedirectionCommand::execute() {
+    int fd;
+    int ret=dup(STDOUT_FILENO);
+    int file_options = (this->append)? O_APPEND : O_TRUNC;
+    file_options=file_options | O_CREAT | O_WRONLY | S_IRUSR   ;
+
+    if(ret<0){
+        return;
+    }
+    fd = open((this->file).c_str(),file_options);
+    if(fd <0){
+        return;
+    }
+    int res=dup2(fd,STDOUT_FILENO);
+    if(res <0){
+        return;
+    }
+    this->redirected_command->execute();
+    close(fd);
+    fflush(stdout);
+    dup2(ret,STDOUT_FILENO);
+    return;
+}
+RedirectionCommand::~RedirectionCommand() noexcept {
+    delete this->redirected_command;
 }
