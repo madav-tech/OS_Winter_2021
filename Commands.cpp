@@ -9,7 +9,7 @@
 #include <iomanip>
 #include "Commands.h"
 #include <dirent.h>
-#include <fcntl.h>
+
 using namespace std;
 
 const std::string WHITESPACE = " \n\r\t\f\v";
@@ -121,6 +121,7 @@ SmallShell::SmallShell() {
     this->prompt = "smash> ";
     this->prev_dir = "\0";
     this->job_list = JobsList();
+    this->current_job = nullptr;
 }
 
 SmallShell::~SmallShell() {
@@ -132,6 +133,7 @@ SmallShell::~SmallShell() {
 */
 Command * SmallShell::CreateCommand(const char* cmd_line) {
     // For example:
+
     vector<string> split_line = _parseLine(cmd_line);
     string command_name = split_line[0];
     for(auto iter=split_line.begin();iter!=split_line.end();iter++){
@@ -235,7 +237,7 @@ Command * SmallShell::CreateCommand(const char* cmd_line) {
 void SmallShell::executeCommand(const char *cmd_line) {
     // TODO: Add your implementation here
     // for example:
-    getInstance().job_list.removeFinishedJobs();
+    this->job_list.removeFinishedJobs();
     Command* cmd = CreateCommand(cmd_line);
     if (cmd != nullptr) {
         cmd->execute();
@@ -267,6 +269,14 @@ void SmallShell::setPrevDir(string new_dir){
 
 JobsList* SmallShell::getJobList(){
     return &this->job_list;
+}
+
+JobsList::JobEntry* SmallShell::getCurrentJob(){
+  return this->current_job;
+}
+
+void SmallShell::setCurrentJob(JobsList::JobEntry* job){
+  this->current_job = job;
 }
 
 //_________chprompt_________
@@ -342,7 +352,9 @@ void ExternalCommand::execute() {
     }
     else if (p > 0){
         if(!this->bg_run){
+            SmallShell::getInstance().setCurrentJob(new JobsList::JobEntry(string(cmd_line), p, false));
             wait(NULL);
+            SmallShell::getInstance().setCurrentJob(nullptr);
         }
         else{
             SmallShell::getInstance().getJobList()->addJob(string(cmd_line), p, false);
@@ -599,8 +611,11 @@ void ForegroundCommand::execute(){
   if (SmallShell::getInstance().getJobList()->checkStopped(this->job_id)){
     SmallShell::getInstance().getJobList()->sendSignal(this->job_id, SIGCONT);
   }
-  pid_t pid = SmallShell::getInstance().getJobList()->getJobById(this->job_id)->getPID();
+  JobsList::JobEntry* job_pointer = SmallShell::getInstance().getJobList()->getJobById(this->job_id);
+  pid_t pid = job_pointer->getPID();
+  SmallShell::getInstance().setCurrentJob(job_pointer);
   waitpid(pid, NULL, WUNTRACED);
+  SmallShell::getInstance().setCurrentJob(nullptr);
   SmallShell::getInstance().getJobList()->removeJobById(this->job_id);
 }
 
