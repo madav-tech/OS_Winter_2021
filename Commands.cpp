@@ -9,6 +9,7 @@
 #include <iomanip>
 #include "Commands.h"
 #include <dirent.h>
+#include <fcntl.h>
 
 using namespace std;
 
@@ -352,9 +353,14 @@ void ExternalCommand::execute() {
     }
     else if (p > 0){
         if(!this->bg_run){
-            SmallShell::getInstance().setCurrentJob(new JobsList::JobEntry(string(cmd_line), p, false));
-            wait(NULL);
-            SmallShell::getInstance().setCurrentJob(nullptr);
+            SmallShell &smash = SmallShell::getInstance();
+            smash.setCurrentJob(new JobsList::JobEntry(string(cmd_line), p, false));
+            int status;
+            waitpid(p, &status, WUNTRACED);
+            smash.setCurrentJob(nullptr);
+
+            if(WIFSTOPPED(status))
+                smash.getJobList()->addJob(string(cmd_line), p,true);
         }
         else{
             SmallShell::getInstance().getJobList()->addJob(string(cmd_line), p, false);
@@ -609,14 +615,20 @@ ForegroundCommand::ForegroundCommand(const char* cmd_line, int job_id) : BuiltIn
 
 void ForegroundCommand::execute(){
   if (SmallShell::getInstance().getJobList()->checkStopped(this->job_id)){
+      cout<<"we are here";
     SmallShell::getInstance().getJobList()->sendSignal(this->job_id, SIGCONT);
   }
+
   JobsList::JobEntry* job_pointer = SmallShell::getInstance().getJobList()->getJobById(this->job_id);
   pid_t pid = job_pointer->getPID();
   SmallShell::getInstance().setCurrentJob(job_pointer);
-  waitpid(pid, NULL, WUNTRACED);
+  int status;
+  waitpid(pid, &status, WUNTRACED);
   SmallShell::getInstance().setCurrentJob(nullptr);
-  SmallShell::getInstance().getJobList()->removeJobById(this->job_id);
+  if(!WIFSTOPPED(status))
+      SmallShell::getInstance().getJobList()->removeJobById(this->job_id);
+  else
+      SmallShell::getInstance().getJobList()->jobStoppedOrResumed(this->job_id,true);
 }
 
 // 0->Valid, 1->Job doesn't exist, 2->No args but job list is empty, 3->Invalid args
