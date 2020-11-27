@@ -367,8 +367,8 @@ void ExternalCommand::execute() {
         }
     }
     else {
-
         setpgrp();
+
         string temp_line = string(this->cmd_line);
         temp_line += ";";
 
@@ -472,6 +472,7 @@ void JobsList::JobEntry::killJob(int signal,bool print) {
     if(kill(this->process_id,signal) != 0){
         perror("“smash error: kill failed");
     }
+
 }
 
 pid_t JobsList::JobEntry::getPID() const {
@@ -615,7 +616,6 @@ ForegroundCommand::ForegroundCommand(const char* cmd_line, int job_id) : BuiltIn
 
 void ForegroundCommand::execute(){
   if (SmallShell::getInstance().getJobList()->checkStopped(this->job_id)){
-      cout<<"we are here";
     SmallShell::getInstance().getJobList()->sendSignal(this->job_id, SIGCONT);
   }
 
@@ -625,10 +625,12 @@ void ForegroundCommand::execute(){
   int status;
   waitpid(pid, &status, WUNTRACED);
   SmallShell::getInstance().setCurrentJob(nullptr);
-  if(!WIFSTOPPED(status))
+  if(!WIFSTOPPED(status)) {
       SmallShell::getInstance().getJobList()->removeJobById(this->job_id);
-  else
-      SmallShell::getInstance().getJobList()->jobStoppedOrResumed(this->job_id,true);
+  }
+  else{
+        SmallShell::getInstance().getJobList()->jobStoppedOrResumed(this->job_id, true);
+    }
 }
 
 // 0->Valid, 1->Job doesn't exist, 2->No args but job list is empty, 3->Invalid args

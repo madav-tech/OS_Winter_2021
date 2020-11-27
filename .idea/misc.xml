@@ -9,6 +9,11 @@
         <option name="buildTarget" value="all" />
         <option name="cleanTarget" value="clean" />
         <option name="externalProjectPath" value="$PROJECT_DIR$" />
+        <option name="modules">
+          <set>
+            <option value="D:\semester_winter\Operating_Systems\Homeworks\hw1-wet\Files\TrueFile\OS_Winter_2021" />
+          </set>
+        </option>
         <option name="switches" value="--just-print --print-directory --keep-going" />
       </MakefileProjectSettings>
     </option>
