@@ -285,7 +285,7 @@ Command * SmallShell::CreateCommand(const char* cmd_line) {
 
     //TO NOT RUN EMPTY COMMAND
     else if (!string(cmd_line).empty()) {
-        cout << command_name << endl;
+        // cout << command_name << endl;
         bool bg_run = false;
 
         //Checking for '&' symbol
@@ -573,7 +573,7 @@ void JobsList::addJob(string cmd, int job_pid, bool isStopped) {
 
 void JobsList::printJobsList() {
     for(auto iter = this->job_list.begin(); iter != this->job_list.end(); iter++){
-        cout << '[' << iter->first << ']';
+        cout << "[" << iter->first << "] ";
         iter->second.PrintJob();
     }
 }
@@ -934,9 +934,9 @@ void TimeoutList::addEntry(string cmd, int pid, int duration){
     }
 
 
-    for (auto it = this->timed_list.begin(); it != this->timed_list.end(); it++){
-        cout << "CMD: " << it->getCommand() << endl;
-    }
+    // for (auto it = this->timed_list.begin(); it != this->timed_list.end(); it++){
+    //     cout << "CMD: " << it->getCommand() << endl;
+    // }
 }
 
 void TimeoutList::doomEntry(){
