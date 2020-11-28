@@ -148,7 +148,25 @@ Command * SmallShell::CreateCommand(const char* cmd_line) {
             return new RedirectionCommand(cmd_line,redirection_command,*(iter+1),*iter);
 
         }
-
+    }
+    for(auto iter=split_line.begin();iter!=split_line.end();iter++){
+        if(*iter=="|"||*iter=="|&"){
+            string src_string="";
+            for(auto command_iter=split_line.begin();command_iter!=iter;command_iter++){
+                src_string+=*command_iter;
+                src_string+=" ";
+            }
+            cout<<src_string<<endl;
+            Command * src_command=this->CreateCommand(src_string.c_str());
+            string dest_string="";
+            for(auto command_iter=iter+1;command_iter!=split_line.end();command_iter++){
+                dest_string+=*command_iter;
+                dest_string+=" ";
+            }
+            cout<<dest_string<<endl;
+            Command * dest_command=this->CreateCommand(dest_string.c_str());
+            return new PipeCommand(cmd_line,src_command,dest_command,*iter);
+        }
     }
 
     if(command_name == "chprompt") {
@@ -343,8 +361,6 @@ ExternalCommand::ExternalCommand(const char* cmd_line, bool bg_run) : Command(cm
 }
 
 void ExternalCommand::execute() {
-    cout<<"###external###"<<endl;
-
     int p = fork();
 
     if(p < 0){
@@ -679,17 +695,21 @@ void RedirectionCommand::execute() {
     int fd;
     int ret=dup(STDOUT_FILENO);
     int file_options = (this->append)? O_APPEND : O_TRUNC;
-    file_options=file_options | O_CREAT | O_WRONLY | S_IRUSR   ;
+    file_options=file_options | O_CREAT | O_WRONLY;
 
     if(ret<0){
+        perror("smash error: dup failed");
         return;
     }
     fd = open((this->file).c_str(),file_options);
     if(fd <0){
+        cout <<"damn";
+        perror("smash error: Open failed");
         return;
     }
     int res=dup2(fd,STDOUT_FILENO);
     if(res <0){
+        perror("smash error: Redirection failed");
         return;
     }
     this->redirected_command->execute();
@@ -700,4 +720,51 @@ void RedirectionCommand::execute() {
 }
 RedirectionCommand::~RedirectionCommand() noexcept {
     delete this->redirected_command;
+}
+
+//________RedirectionCommand__________
+PipeCommand::PipeCommand(const char* cmd_line, Command* src,Command* dest,string err_pipe) :
+        Command(cmd_line),src_command(src),dest_command(dest){
+    if(err_pipe=="|&")
+        this->err_pipe=true;
+    else
+        this->err_pipe=false;
+}
+
+void PipeCommand::execute() {
+    int the_pipe[2];
+
+    int suc=pipe(the_pipe);
+    if(suc==-1){
+        perror("smash error: pipe failed");
+        return;
+    }
+
+    int pid = fork();
+    if(pid==0){
+        close(the_pipe[1]);
+        int ret=dup(STDIN_FILENO);
+        dup2(the_pipe[0],STDIN_FILENO);
+        this->dest_command->execute();
+
+        dup2(ret,STDIN_FILENO);
+        exit(1);
+    }
+    else if(pid>0){
+        close(the_pipe[0]);
+        int ret=dup(STDOUT_FILENO);
+        dup2(the_pipe[1],STDOUT_FILENO);
+        this->src_command->execute();
+        waitpid(pid, nullptr,0);
+        dup2(ret,STDOUT_FILENO);
+    }
+    else{
+        perror("smash error: fork failed");
+        return;
+    }
+    return;
+}
+PipeCommand::~PipeCommand() noexcept {
+    delete this->dest_command;
+    delete this->src_command;
 }

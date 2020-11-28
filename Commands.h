@@ -42,9 +42,12 @@ class ExternalCommand : public Command {
 
 class PipeCommand : public Command {
   // TODO: Add your data members
+  Command* src_command;
+  Command* dest_command;
+  bool err_pipe;
  public:
-  PipeCommand(const char* cmd_line);
-  virtual ~PipeCommand() {}
+  PipeCommand(const char* cmd_line, Command* src,Command* dest,string err_pipe);
+  virtual ~PipeCommand();
   void execute() override;
 };
 
