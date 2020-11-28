@@ -757,12 +757,12 @@ void RedirectionCommand::execute() {
     int ret=dup(STDOUT_FILENO);
     int file_options = (this->append)? O_APPEND : O_TRUNC;
     file_options=file_options | O_CREAT | O_WRONLY;
-
+    int permission = S_IRWXU | S_IRWXG | S_IRWXO;
     if(ret<0){
         perror("smash error: dup failed");
         return;
     }
-    fd = open((this->file).c_str(),file_options);
+    fd = open((this->file).c_str(),file_options,permission);
     if(fd <0){
         perror("smash error: Open failed");
         return;
@@ -827,7 +827,7 @@ int BackgroundCommand::validLine(vector<string> split){
     }
 }
 
-//________RedirectionCommand__________
+//________PipeCommand__________
 PipeCommand::PipeCommand(const char* cmd_line, Command* src,Command* dest,string err_pipe) :
         Command(cmd_line),src_command(src),dest_command(dest){
     if(err_pipe=="|&")
@@ -954,7 +954,6 @@ void TimeoutList::doomEntry(){
 TimeoutCommand::TimeoutCommand(const char* cmd_line, int duration, bool bg_run) : Command(cmd_line), duration(duration), bg_run(bg_run){
     
 }
-
 
 
 void TimeoutCommand::execute(){
