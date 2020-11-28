@@ -533,11 +533,12 @@ void JobsList::JobEntry::PrintJob() {
 }
 
 void JobsList::JobEntry::killJob(int signal,bool print) {
+    if(kill(this->process_id,signal) != 0){
+        perror("smash error: kill failed");
+        return;
+    }
     if(print){
         cout << "signal number " << signal << " was sent to pid " << process_id << endl;
-    }
-    if(kill(this->process_id,signal) != 0){
-        perror("“smash error: kill failed");
     }
 
 }
@@ -676,10 +677,12 @@ void ListDirectoryContents::execute() {
         return;
     }
     for(int i = 0; i < test; i++){
-        cout << dir[i]->d_name << endl;
+        if(dir[i]->d_name[0]!='.')
+            cout << dir[i]->d_name << endl;
         free(dir[i]);
     }
     free(dir);
+    return;
 }
 
 
@@ -871,7 +874,6 @@ void PipeCommand::execute() {
         close(the_pipe[1]);
         dup2(ret,pipe_end);
         waitpid(pid, nullptr,0);
-        dup2(ret,pipe_end);
     }
     else{
         perror("smash error: fork failed");
