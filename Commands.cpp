@@ -163,14 +163,14 @@ Command * SmallShell::CreateCommand(const char* cmd_line) {
                 src_string+=*command_iter;
                 src_string+=" ";
             }
-            cout<<src_string<<endl;
+            // cout<<src_string<<endl;
             Command * src_command=this->CreateCommand(src_string.c_str());
             string dest_string="";
             for(auto command_iter=iter+1;command_iter!=split_line.end();command_iter++){
                 dest_string+=*command_iter;
                 dest_string+=" ";
             }
-            cout<<dest_string<<endl;
+            // cout<<dest_string<<endl;
             Command * dest_command=this->CreateCommand(dest_string.c_str());
             return new PipeCommand(cmd_line,src_command,dest_command,*iter);
         }
@@ -284,7 +284,8 @@ Command * SmallShell::CreateCommand(const char* cmd_line) {
     }
 
     //TO NOT RUN EMPTY COMMAND
-    else if (command_name != "") {
+    else if (!string(cmd_line).empty()) {
+        cout << command_name << endl;
         bool bg_run = false;
 
         //Checking for '&' symbol
@@ -410,6 +411,7 @@ ExternalCommand::ExternalCommand(const char* cmd_line, bool bg_run) : Command(cm
 }
 
 void ExternalCommand::execute() {
+    // cout << "EXTERNAL" << endl;
     int p = fork();
 
     if(p < 0){
@@ -668,9 +670,13 @@ ListDirectoryContents::ListDirectoryContents(const char* cmd_line) : BuiltInComm
 
 void ListDirectoryContents::execute() {
     struct dirent** dir;
-    int test=scandir(".", &dir, NULL, alphasort);
-    for(int i=0;i<test;i++){
-        cout<<dir[i]->d_name<<endl;
+    int test = scandir(".", &dir, NULL, alphasort);
+    if (test < 0){
+        perror("smash error: scandir failed");
+        return;
+    }
+    for(int i = 0; i < test; i++){
+        cout << dir[i]->d_name << endl;
         free(dir[i]);
     }
     free(dir);
