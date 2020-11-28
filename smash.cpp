@@ -13,6 +13,14 @@ int main(int argc, char* argv[]) {
         perror("smash error: failed to set ctrl-C handler");
     }
 
+    struct sigaction alarm_handler;
+    alarm_handler.sa_handler = alarmHandler;
+    alarm_handler.sa_flags = SA_RESTART;
+
+    if(sigaction(SIGALRM, &alarm_handler, NULL) != 0){
+        perror("smash error: sigaction failed");
+    }
+
     //TODO: setup sig alarm handler
 
     SmallShell& smash = SmallShell::getInstance();

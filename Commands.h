@@ -32,7 +32,7 @@ class BuiltInCommand : public Command {
 
 class ExternalCommand : public Command {
  private:
-  vector<string> args;
+  // vector<string> args;
   bool bg_run;
  public:
   ExternalCommand(const char* cmd_line, bool bg_run);
@@ -50,15 +50,71 @@ class PipeCommand : public Command {
 
 class RedirectionCommand : public Command {
  // TODO: Add your data members
- Command* redirected_command;
- string file;
- bool append;
+ private:
+  Command* redirected_command;
+  string file;
+  bool append;
  public:
   explicit RedirectionCommand(const char* ,Command* redirected_command, string file, string append);
   virtual ~RedirectionCommand();
   void execute() override;
   //void prepare() override;
   //void cleanup() override;
+};
+
+class TimeoutList {
+  public:
+    class TimeoutEntry {
+        // TODO: Add your data members
+        string command;
+        pid_t process_id;
+        time_t insertion_time;
+        int duration;
+    public:
+        TimeoutEntry(const string &command, int process_id, int duration);
+        TimeoutEntry() = default;
+        // prints job info in the format of
+
+        //returns pid
+        pid_t getPID();
+
+        //return command
+        string getCommand();
+
+        void timeout();
+
+        //Returns true if the entry's time has ended
+        bool isDoomed();
+
+        int getDuration();
+
+        int getInserted();
+    };
+
+  private:
+    vector<TimeoutEntry> timed_list;
+
+  public:
+    TimeoutList()=default;
+    ~TimeoutList()=default;
+
+    //adds new entry into the list
+    void addEntry(string cmd, int pid, int duration);
+
+    //Checks for every entry if (insertion time + duration == current time)
+    void doomEntry();
+
+};
+
+class TimeoutCommand : public Command {
+ private:
+  int duration;
+  bool bg_run;
+
+ public:
+  TimeoutCommand(const char* cmd_line, int duration, bool bg_run);
+  virtual ~TimeoutCommand() {}
+  void execute() override;
 };
 
 class ChangeDirCommand : public BuiltInCommand {
@@ -115,26 +171,6 @@ class ChpromptCommand : public BuiltInCommand {
     void execute() override;
 };
 
-class CommandsHistory {
- protected:
-  class CommandHistoryEntry {
-	  // TODO: Add your data members
-  };
- // TODO: Add your data members
- public:
-  CommandsHistory();
-  ~CommandsHistory() {}
-  void addRecord(const char* cmd_line);
-  void printHistory();
-};
-
-class HistoryCommand : public BuiltInCommand {
- // TODO: Add your data members
- public:
-  HistoryCommand(const char* cmd_line, CommandsHistory* history);
-  virtual ~HistoryCommand() {}
-  void execute() override;
-};
 
 class JobsList {
 public:
@@ -196,7 +232,7 @@ public:
     void jobStoppedOrResumed(int jobId,bool isStopped);
     // TODO: Add extra methods or modify exisitng ones as needed
 
-    void sendSignal(int jobID, int sig_num);
+    void sendSignal(int jobID, int sig_num, bool print = true);
     int lastJob();
     bool checkStopped(int jobID);
     bool isEmpty();
@@ -258,6 +294,7 @@ class SmallShell {
   string prompt;
   JobsList job_list;
   JobsList::JobEntry* current_job;
+  TimeoutList timeout_list;
 
   SmallShell();
  public:
@@ -284,6 +321,8 @@ class SmallShell {
 
   JobsList::JobEntry* getCurrentJob();
   void setCurrentJob(JobsList::JobEntry* job);
+
+  TimeoutList* getTimeoutList();
 
 };
 

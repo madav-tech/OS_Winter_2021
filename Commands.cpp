@@ -127,6 +127,7 @@ SmallShell::SmallShell() {
     this->prev_dir = "\0";
     this->job_list = JobsList();
     this->current_job = nullptr;
+    this->timeout_list = TimeoutList();
 }
 
 SmallShell::~SmallShell() {
@@ -253,6 +254,15 @@ Command * SmallShell::CreateCommand(const char* cmd_line) {
         return new QuitCommand(cmd_line, jobs, kill);
     }
 
+    else if(command_name == "timeout"){
+        int duration = stoi(split_line[1]);
+        bool bg_run = false;
+        if(_isBackgroundComamnd(cmd_line)){
+            bg_run = true;
+        }
+        return new TimeoutCommand(cmd_line, duration, bg_run);
+    }
+
     //TO NOT RUN EMPTY COMMAND
     else if (command_name != "") {
         bool bg_run = false;
@@ -311,6 +321,11 @@ JobsList::JobEntry* SmallShell::getCurrentJob(){
 void SmallShell::setCurrentJob(JobsList::JobEntry* job){
   this->current_job = job;
 }
+
+TimeoutList* SmallShell::getTimeoutList(){
+    return &this->timeout_list;
+}
+
 
 //_________chprompt_________
 
@@ -593,12 +608,12 @@ void JobsList::jobStoppedOrResumed(int jobId,bool isStopped) {
         cur_job->stoppedOrResumed(isStopped);
 }
 
-void JobsList::sendSignal(int jobID, int sig_num){
+void JobsList::sendSignal(int jobID, int sig_num, bool print){
     if (this->job_list.find(jobID) == this->job_list.end()) {
         cout << "smash error: kill: job-id " << jobID << " does not exist" << endl;
     }
     else {
-        this->job_list[jobID].killJob(sig_num, true);
+        this->job_list[jobID].killJob(sig_num, print);
     }
 }
 
@@ -655,11 +670,12 @@ ForegroundCommand::ForegroundCommand(const char* cmd_line, int job_id) : BuiltIn
 }
 
 void ForegroundCommand::execute(){
-    if (SmallShell::getInstance().getJobList()->checkStopped(this->job_id)){
-        SmallShell::getInstance().getJobList()->sendSignal(this->job_id, SIGCONT);
-    }
-
+    
     JobsList::JobEntry* job_pointer = SmallShell::getInstance().getJobList()->getJobById(this->job_id);
+    cout << job_pointer->getCommand() << " : " << job_pointer->getPID() << endl;
+    if (SmallShell::getInstance().getJobList()->checkStopped(this->job_id)){
+        SmallShell::getInstance().getJobList()->sendSignal(this->job_id, SIGCONT, false);
+    }
     pid_t pid = job_pointer->getPID();
     SmallShell::getInstance().setCurrentJob(job_pointer);
     int status;
@@ -703,6 +719,7 @@ int ForegroundCommand::validLine(vector<string> split){
 //________quit___________
 QuitCommand::QuitCommand(const char* cmd_line,JobsList* jobs , bool kill = false) :
                          BuiltInCommand(cmd_line) , jobs(jobs) , kill(kill){}
+
 void QuitCommand::execute(){
     this->jobs->killAllJobs(this->kill);
     exit(0);
@@ -722,7 +739,7 @@ void RedirectionCommand::execute() {
     int fd;
     int ret=dup(STDOUT_FILENO);
     int file_options = (this->append)? O_APPEND : O_TRUNC;
-    file_options=file_options | O_CREAT | O_WRONLY | S_IRUSR   ;
+    file_options=file_options | O_CREAT | O_WRONLY | S_IRUSR;
 
     if(ret<0){
         return;
@@ -757,8 +774,9 @@ BackgroundCommand::BackgroundCommand(const char* cmd_line, int job_id) : BuiltIn
 }
 
 void BackgroundCommand::execute(){
-    cout << SmallShell::getInstance().getJobList()->getJobById(this->job_id)->getCommand() << endl;
-    SmallShell::getInstance().getJobList()->sendSignal(this->job_id, SIGCONT);
+    JobsList::JobEntry* job_pointer = SmallShell::getInstance().getJobList()->getJobById(this->job_id);
+    cout << job_pointer->getCommand() << " : " << job_pointer->getPID() << endl;
+    SmallShell::getInstance().getJobList()->sendSignal(this->job_id, SIGCONT, false);
     SmallShell::getInstance().getJobList()->jobStoppedOrResumed(this->job_id, false);
 }
 
@@ -786,5 +804,159 @@ int BackgroundCommand::validLine(vector<string> split){
             return BG_NO_JOBS_STOPPPED;
         }
         return BG_VALID;
+    }
+}
+
+
+//______Timeout list_______
+TimeoutList::TimeoutEntry::TimeoutEntry(const string &command, int process_id, int duration) : command(command), process_id(process_id), duration(duration){
+    this->insertion_time = time(nullptr);
+}
+
+pid_t TimeoutList::TimeoutEntry::getPID(){
+    return this->process_id;
+}
+
+string TimeoutList::TimeoutEntry::getCommand(){
+    return this->command;
+}
+
+void TimeoutList::TimeoutEntry::timeout(){
+    if (kill(this->process_id, SIGKILL) != 0){
+        perror("smash error: kill failed");
+        return;
+    }
+    cout << "smash: " << this->command << " timed out!" << endl;
+}
+
+bool TimeoutList::TimeoutEntry::isDoomed(){
+    return this->insertion_time + this->duration <= time(nullptr);
+}
+
+int TimeoutList::TimeoutEntry::getDuration(){
+    return this->duration;
+}
+
+int TimeoutList::TimeoutEntry::getInserted(){
+    return this->insertion_time;
+}
+
+void TimeoutList::addEntry(string cmd, int pid, int duration){
+    
+    TimeoutEntry entry(cmd, pid, duration);
+    this->timed_list.push_back(entry);
+
+    //Finding new alarm time
+    int min_time = -1;
+    for (auto it = this->timed_list.begin(); it != this->timed_list.end(); it++){
+        if (min_time == -1 || (it->getDuration() - (time(nullptr)-it->getInserted()) < min_time)){
+            min_time = it->getDuration() - (time(nullptr)-it->getInserted());
+        }
+    }
+    if (min_time != -1){
+        alarm(min_time);
+    }
+
+
+    for (auto it = this->timed_list.begin(); it != this->timed_list.end(); it++){
+        cout << "CMD: " << it->getCommand() << endl;
+    }
+}
+
+void TimeoutList::doomEntry(){
+    for (auto it = this->timed_list.begin(); it != this->timed_list.end(); it++){
+        if (it->isDoomed()){
+            it->timeout();
+            this->timed_list.erase(it);
+            break;
+        }
+    }
+
+    //Finding new alarm time
+    int min_time = -1;
+    for (auto it = this->timed_list.begin(); it != this->timed_list.end(); it++){
+        if (min_time == -1 || (it->getDuration() - (time(nullptr)-it->getInserted()) < min_time)){
+            min_time = it->getDuration() - (time(nullptr)-it->getInserted());
+        }
+    }
+    if (min_time != -1){
+        alarm(min_time);
+    }
+}
+
+//___________Timeout Command_______________
+TimeoutCommand::TimeoutCommand(const char* cmd_line, int duration, bool bg_run) : Command(cmd_line), duration(duration), bg_run(bg_run){
+    
+}
+
+
+
+void TimeoutCommand::execute(){
+
+    int p = fork();
+
+    if(p < 0){
+        perror("smash error: fork failed");
+        return;
+    }
+    else if (p > 0){
+
+        alarm(this->duration);
+        SmallShell::getInstance().getTimeoutList()->addEntry(this->cmd_line, p, this->duration);
+        if(!this->bg_run){
+            SmallShell &smash = SmallShell::getInstance();
+            smash.setCurrentJob(new JobsList::JobEntry(string(cmd_line), p, false));
+            int status;
+            waitpid(p, &status, WUNTRACED);
+            smash.setCurrentJob(nullptr);
+
+            if(WIFSTOPPED(status))
+                smash.getJobList()->addJob(string(cmd_line), p,true);
+        }
+        else{
+            SmallShell::getInstance().getJobList()->addJob(string(cmd_line), p, false);
+        }
+    }
+    else {
+        setpgrp();
+
+        string temp_line = string(this->cmd_line);
+        temp_line += ";";
+        string cut_line = temp_line.substr(string("timeout ").size());
+
+        int chars_to_cut = 0;
+        for (auto it = cut_line.begin(); it != cut_line.end(); it++){
+            if (*it >= '0' && *it <= '9'){
+                chars_to_cut ++;
+            }
+            else{
+                chars_to_cut++;
+                break;
+            }
+        }
+        cut_line = cut_line.substr(chars_to_cut);
+
+        //Removing '&'
+        if (this->bg_run){
+          for (auto it = cut_line.begin(); it != cut_line.end(); it++){
+            if (*it == '&'){
+              cut_line.erase(it);
+              break;
+            }
+          }
+        }
+
+        char sent_cmd[200] = "";
+        strcat(sent_cmd, cut_line.c_str());
+
+        char* args[4];
+        args[0] = "/bin/bash";
+        args[1] = "-c";
+        args[3] = NULL;
+        args[2] = sent_cmd;
+        if (execv(args[0], args) < 0){
+            perror("smash error: execv failed");
+            exit(1);
+        }
     }
 }
