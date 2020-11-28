@@ -203,6 +203,7 @@ public:
     int lastJob();
     bool checkStopped(int jobID);
     bool isEmpty();
+    int lastStoppedJob();
 };
 
 class JobsCommand : public BuiltInCommand {
@@ -240,10 +241,14 @@ class ForegroundCommand : public BuiltInCommand {
 
 class BackgroundCommand : public BuiltInCommand {
  // TODO: Add your data members
+ private:
+  int job_id;
+
  public:
-  BackgroundCommand(const char* cmd_line, JobsList* jobs);
+  BackgroundCommand(const char* cmd_line, int job_id);
   virtual ~BackgroundCommand() {}
   void execute() override;
+  static int validLine(vector<string> split_line);
 };
 
 // TODO: add more classes if needed 

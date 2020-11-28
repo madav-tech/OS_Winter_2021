@@ -41,6 +41,11 @@ const std::string WHITESPACE = " \n\r\t\f\v";
 #define FG_LIST_EMPTY 2
 #define FG_INVALID_ARGS 3
 
+#define BG_VALID 0
+#define BG_JOB_ID_INVALID 1
+#define BG_INVALID_ARGS 3
+#define BG_ALREADY_RUNNING 4
+#define BG_NO_JOBS_STOPPPED -1
 
 string _ltrim(const std::string& s)
 {
@@ -137,15 +142,15 @@ Command * SmallShell::CreateCommand(const char* cmd_line) {
 
     vector<string> split_line = _parseLine(cmd_line);
     string command_name = split_line[0];
-    for(auto iter=split_line.begin();iter!=split_line.end();iter++){
-        if(*iter==">"||*iter==">>"){
-            string string_command="";
-            for(auto command_iter=split_line.begin();command_iter!=iter;command_iter++){
-                string_command+=*command_iter;
-                string_command+=" ";
+    for(auto iter = split_line.begin(); iter != split_line.end(); iter++){
+        if(*iter == ">" || *iter == ">>"){
+            string string_command = "";
+            for(auto command_iter = split_line.begin(); command_iter != iter; command_iter++){
+                string_command += *command_iter;
+                string_command += " ";
             }
-            Command * redirection_command=this->CreateCommand(string_command.c_str());
-            return new RedirectionCommand(cmd_line,redirection_command,*(iter+1),*iter);
+            Command * redirection_command = this->CreateCommand(string_command.c_str());
+            return new RedirectionCommand(cmd_line, redirection_command, *(iter + 1), *iter);
 
         }
     }
@@ -232,12 +237,39 @@ Command * SmallShell::CreateCommand(const char* cmd_line) {
       return new ForegroundCommand(cmd_line, job_id);
     }
 
+    else if(command_name == "bg"){
+        int job_id = 0;
+        int validity = BackgroundCommand::validLine(split_line);
+
+        if (validity == BG_JOB_ID_INVALID){
+            cout << "smash error: bg: job-id "<< stoi(split_line[1]) <<" does not exist" << endl;
+            return nullptr;
+        }
+        if (validity == BG_INVALID_ARGS){
+            cout << "smash error: bg: invalid arguments" << endl;
+            return nullptr;
+        }
+        if (validity == BG_ALREADY_RUNNING){
+            cout << "smash error: bg: job-id " << stoi(split_line[1]) << " is already running in the background" << endl;
+            return nullptr;
+        }
+        if (validity == BG_NO_JOBS_STOPPPED){
+            cout << "smash error: bg: there is no stopped jobs to resume" << endl;
+            return nullptr;
+        }
+        if (split_line[1] != "")
+            job_id = stoi(split_line[1]);
+        else
+            job_id = -1;
+        return new BackgroundCommand(cmd_line, job_id);
+    }
+
     else if(command_name == "quit"){
-        JobsList* jobs=this->getJobList();
-        bool kill=false;
-        if(split_line[1]=="kill")
-            kill=true;
-        return new QuitCommand(cmd_line,jobs,kill);
+        JobsList* jobs = this->getJobList();
+        bool kill = false;
+        if(split_line[1] == "kill")
+            kill = true;
+        return new QuitCommand(cmd_line, jobs, kill);
     }
 
     else if (!command_name.empty()) {
@@ -598,6 +630,14 @@ bool JobsList::isEmpty(){
   return this->job_list.empty();
 }
 
+int JobsList::lastStoppedJob(){
+    for (auto it = this->job_list.rbegin(); it != this->job_list.rend(); it++){
+        if (it->second.checkStopped())
+            return it->first;
+    }
+    return BG_NO_JOBS_STOPPPED;
+}
+
 //____jobsCommand____
 JobsCommand::JobsCommand(const char* cmd_line) : BuiltInCommand(cmd_line) {}
 
@@ -659,6 +699,9 @@ int ForegroundCommand::validLine(vector<string> split){
       if (*it < '0' || *it > '9')
         return FG_INVALID_ARGS;
     }
+    if (SmallShell::getInstance().getJobList()->isEmpty()){
+      return FG_LIST_EMPTY;
+    }
     int job_id = stoi(split[1]);
     if (SmallShell::getInstance().getJobList()->getJobById(job_id) == nullptr){
       return FG_JOB_ID_INVALID;
@@ -703,7 +746,6 @@ void RedirectionCommand::execute() {
     }
     fd = open((this->file).c_str(),file_options);
     if(fd <0){
-        cout <<"damn";
         perror("smash error: Open failed");
         return;
     }
@@ -720,6 +762,50 @@ void RedirectionCommand::execute() {
 }
 RedirectionCommand::~RedirectionCommand() noexcept {
     delete this->redirected_command;
+}
+
+//_______bg___________
+
+BackgroundCommand::BackgroundCommand(const char* cmd_line, int job_id) : BuiltInCommand(cmd_line) {
+    if (job_id <= 0){
+        this->job_id = SmallShell::getInstance().getJobList()->lastStoppedJob();
+    }
+    else{
+        this->job_id = job_id;
+    }
+}
+
+void BackgroundCommand::execute(){
+    cout << SmallShell::getInstance().getJobList()->getJobById(this->job_id)->getCommand() << endl;
+    SmallShell::getInstance().getJobList()->sendSignal(this->job_id, SIGCONT);
+    SmallShell::getInstance().getJobList()->jobStoppedOrResumed(this->job_id, false);
+}
+
+int BackgroundCommand::validLine(vector<string> split){
+    if(split[2] != ""){
+        return BG_INVALID_ARGS;
+    }
+    if(split[1] != ""){
+        for (auto it = split[1].begin(); it != split[1].end(); it++){
+            if (*it < '0' || *it > '9')
+                return BG_INVALID_ARGS;
+        }
+        int job_id = stoi(split[1]);
+        if (SmallShell::getInstance().getJobList()->getJobById(job_id) == nullptr){
+            return BG_JOB_ID_INVALID;
+        }
+        if (!SmallShell::getInstance().getJobList()->getJobById(job_id)->checkStopped()){
+            return BG_ALREADY_RUNNING;
+        }
+        return BG_VALID;
+    }
+    else{
+        int last_stopped_id = SmallShell::getInstance().getJobList()->lastStoppedJob();
+        if (last_stopped_id == BG_NO_JOBS_STOPPPED){
+            return BG_NO_JOBS_STOPPPED;
+        }
+        return BG_VALID;
+    }
 }
 
 //________RedirectionCommand__________

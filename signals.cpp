@@ -11,7 +11,8 @@ void ctrlZHandler(int sig_num) {
     JobsList::JobEntry* job = SmallShell::getInstance().getCurrentJob();
     if (job != nullptr) {
         pid_t pid = job->getPID();
-        kill(pid, SIGSTOP);
+        // kill(pid, SIGSTOP);
+        job->killJob(SIGSTOP, false);
         cout << "smash: process " << pid << " was stopped" << endl;
         SmallShell::getInstance().setCurrentJob(nullptr);
     }
