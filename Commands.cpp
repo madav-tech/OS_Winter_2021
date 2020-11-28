@@ -155,6 +155,7 @@ Command * SmallShell::CreateCommand(const char* cmd_line) {
 
         }
     }
+
     for(auto iter=split_line.begin();iter!=split_line.end();iter++){
         if(*iter=="|"||*iter=="|&"){
             string src_string="";
@@ -851,17 +852,20 @@ void PipeCommand::execute() {
         int ret=dup(STDIN_FILENO);
         dup2(the_pipe[0],STDIN_FILENO);
         this->dest_command->execute();
-
         dup2(ret,STDIN_FILENO);
         exit(1);
     }
+
     else if(pid>0){
+        int pipe_end= (this->err_pipe)? STDERR_FILENO : STDOUT_FILENO;
         close(the_pipe[0]);
-        int ret=dup(STDOUT_FILENO);
-        dup2(the_pipe[1],STDOUT_FILENO);
+        int ret=dup(pipe_end);
+        dup2(the_pipe[1],pipe_end);
         this->src_command->execute();
+        close(the_pipe[1]);
+        dup2(ret,pipe_end);
         waitpid(pid, nullptr,0);
-        dup2(ret,STDOUT_FILENO);
+        dup2(ret,pipe_end);
     }
     else{
         perror("smash error: fork failed");
