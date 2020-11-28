@@ -872,7 +872,10 @@ void PipeCommand::execute() {
 PipeCommand::~PipeCommand() noexcept {
     delete this->dest_command;
     delete this->src_command;
+<<<<<<< HEAD
 }
+=======
+>>>>>>> 46d6d67aa7d5af711de6d28f29475c188f1360de
 
 //______Timeout list_______
 TimeoutList::TimeoutEntry::TimeoutEntry(const string &command, int process_id, int duration) : command(command), process_id(process_id), duration(duration){
