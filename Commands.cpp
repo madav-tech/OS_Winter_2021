@@ -239,6 +239,11 @@ Command * SmallShell::CreateCommand(const char* cmd_line) {
       return new ForegroundCommand(cmd_line, job_id);
     }
 
+    else if(command_name == "cp"){
+        return new CopyCommand(cmd_line,split_line);
+    }
+
+
     else if(command_name == "bg"){
         int job_id = 0;
         int validity = BackgroundCommand::validLine(split_line);
@@ -761,7 +766,7 @@ RedirectionCommand::RedirectionCommand(const char* cmd_line,Command* redirected_
         this->append=false;
 }
 
-// TODO : errors handling?
+
 void RedirectionCommand::execute() {
     int fd;
     int ret=dup(STDOUT_FILENO);
@@ -1035,5 +1040,70 @@ void TimeoutCommand::execute(){
             perror("smash error: execv failed");
             exit(1);
         }
+    }
+}
+
+//_______cd__________
+CopyCommand::CopyCommand(const char* cmd_line, vector<string> &split_line):
+        Command(cmd_line),src_dir(split_line[1]),dest_dir(split_line[2]){
+    if (split_line[3]=="&")
+        this->bg=true;
+    else
+        this->bg=false;
+}
+
+void CopyCommand::execute() {
+
+    int p = fork();
+    if(p < 0){
+        perror("smash error: fork failed");
+        return;
+    }
+    else if (p > 0){
+        if(!this->bg){
+            SmallShell &smash = SmallShell::getInstance();
+            smash.setCurrentJob(new JobsList::JobEntry(string(cmd_line), p, false));
+            int status;
+            waitpid(p, &status, WUNTRACED);
+            smash.setCurrentJob(nullptr);
+
+            if(WIFSTOPPED(status))
+                smash.getJobList()->addJob(string(cmd_line), p,true);
+        }
+        else{
+            SmallShell::getInstance().getJobList()->addJob(string(cmd_line), p, false);
+        }
+    }
+    else {
+        setpgrp();
+        int fd_src,fd_dest;
+        int src_options= O_RDONLY;
+        int dest_options= O_WRONLY | O_CREAT | O_TRUNC;
+        int permission = S_IRWXU | S_IRWXG | S_IRWXO ;
+        fd_src=open((this->src_dir).c_str(),src_options);
+        if(fd_src <0){
+            perror("smash error: Open failed");
+            exit(1);
+        }
+        fd_dest=open((this->dest_dir).c_str(),dest_options,permission);
+        if(fd_dest <0){
+            perror("smash error: Open failed");
+            close(fd_src);
+            exit(1);
+        }
+        char * buffer[1024];
+        int read_size;
+        while(read_size=read(fd_src,buffer,1024)) {
+            if((read_size<0)||(write(fd_dest,buffer,read_size)<0)){
+                perror("smash error: cp failed");
+                close(fd_dest);
+                close(fd_src);
+                exit(1);
+            }
+        }
+        close(fd_dest);
+        close(fd_src);
+        cout<<"smash: "<<this->src_dir<<" was copied to "<<this->dest_dir<<endl;
+        exit(0);
     }
 }

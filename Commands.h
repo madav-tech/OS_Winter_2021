@@ -65,6 +65,17 @@ class RedirectionCommand : public Command {
   //void cleanup() override;
 };
 
+class CopyCommand : public Command {
+private:
+    string src_dir;
+    string dest_dir;
+    bool bg;
+public:
+    CopyCommand(const char* cmd_line, vector<string> &split_line);
+    virtual ~CopyCommand() {}
+    void execute() override;
+};
+
 class TimeoutList {
   public:
     class TimeoutEntry {
